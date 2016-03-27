@@ -3,10 +3,16 @@ package bot
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"euphoria.io/heim-client/client"
 	"euphoria.io/heim/proto"
 	"euphoria.io/scope"
+)
+
+const (
+	MinBackoff = time.Second
+	MaxBackoff = 10 * time.Second
 )
 
 type SessionSet map[string]struct{}
@@ -31,6 +37,8 @@ type Room struct {
 	SpeechHandler SpeechHandler
 
 	c               *client.Client
+	ctx             scope.Context
+	backoff         time.Duration
 	joined          bool
 	hosts           SessionSet
 	sessionsByIdEra map[string]SessionSet
@@ -38,24 +46,59 @@ type Room struct {
 
 func (r *Room) IsControlRoom() bool { return r.Name == r.Config.ControlRoom }
 
-func (r *Room) Dial(ctx scope.Context) error {
-	r.Lock()
-	defer r.Unlock()
+func (r *Room) Dial(ctx scope.Context) {
+	r.ctx = ctx
+	r.Redial()
+}
 
-	r.hosts = SessionSet{}
-	r.sessionsByIdEra = map[string]SessionSet{}
+func (r *Room) Redial() {
+	r.Lock()
 	if r.c != nil {
 		r.c.Close()
 		r.c = nil
 	}
+	r.hosts = SessionSet{}
+	r.sessionsByIdEra = map[string]SessionSet{}
+	r.Unlock()
 
-	conn, err := client.DialRoom(ctx, r.Config.BaseURL, r.Name)
-	if err != nil {
-		return err
+	for {
+		delay := r.backoff
+		r.backoff *= 2
+		if r.backoff < MinBackoff {
+			r.backoff = MinBackoff
+		} else if r.backoff > MaxBackoff {
+			r.backoff = MaxBackoff
+		}
+
+		select {
+		case <-time.After(delay):
+		case <-r.ctx.Done():
+			return
+		}
+
+		conn, err := client.DialRoom(r.ctx, r.Config.BaseURL, r.Name)
+		if err != nil {
+			fmt.Printf("error dialing %s: %s", r.Name, err)
+			continue
+		}
+
+		r.c = conn
+		break
 	}
 
-	r.c = conn
 	r.c.Add(r)
+}
+
+func (r *Room) DisconnectEvent(event *proto.DisconnectEvent) error {
+	fmt.Printf("disconnected from %s due to '%s', reconnecting\n", r.Name, event.Reason)
+	go func() {
+		if event.Reason == "authentication changed" {
+			r.backoff = 0
+		} else {
+			r.backoff = MinBackoff
+		}
+		r.Redial()
+	}()
 	return nil
 }
 

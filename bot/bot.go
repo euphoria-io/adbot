@@ -47,10 +47,7 @@ func (b *Bot) Serve(ctx scope.Context) error {
 		SpeechHandler: BindCommands(&ControlRoomCommands{GeneralCommands{Bot: b}}),
 	}
 	b.ctx = ctx
-	if err := b.ctrlRoom.Dial(b.ctx.Fork()); err != nil {
-		ctx.Terminate(err)
-		return err
-	}
+	b.ctrlRoom.Dial(b.ctx.Fork())
 
 	b.rooms = map[string]*Room{}
 	for _, roomName := range rooms {
@@ -58,10 +55,7 @@ func (b *Bot) Serve(ctx scope.Context) error {
 			Config: b.Config,
 			Name:   roomName,
 		}
-		if err := b.rooms[roomName].Dial(b.ctx.Fork()); err != nil {
-			ctx.Terminate(err)
-			return err
-		}
+		b.rooms[roomName].Dial(b.ctx.Fork())
 	}
 
 	return nil
@@ -88,9 +82,6 @@ func (b *Bot) Join(roomName string) (bool, error) {
 		Config: b.Config,
 		Name:   roomName,
 	}
-	if err := b.rooms[roomName].Dial(b.ctx.Fork()); err != nil {
-		return false, err
-	}
-
+	b.rooms[roomName].Dial(b.ctx.Fork())
 	return true, nil
 }
