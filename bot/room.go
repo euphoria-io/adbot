@@ -2,6 +2,7 @@ package bot
 
 import (
 	"fmt"
+	"net/http"
 	"sync"
 	"time"
 
@@ -33,6 +34,7 @@ func (ss SessionSet) Contains(sessionID string) bool {
 type Room struct {
 	sync.Mutex
 	Config        *Config
+	CookieJar     http.CookieJar
 	Name          string
 	SpeechHandler SpeechHandler
 
@@ -76,7 +78,7 @@ func (r *Room) Redial() {
 			return
 		}
 
-		conn, err := client.DialRoom(r.ctx, r.Config.BaseURL, r.Name)
+		conn, err := client.DialRoom(r.ctx, r.Config.BaseURL, r.Name, r.CookieJar)
 		if err != nil {
 			fmt.Printf("error dialing %s: %s", r.Name, err)
 			continue

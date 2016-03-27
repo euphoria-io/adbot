@@ -3,9 +3,11 @@ package sys
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 
 	"euphoria.io/heim-client/client"
@@ -107,4 +109,60 @@ func Verify(db *DB, conn *client.Client, verifyURL string) error {
 		tx.AccountBucket().Put([]byte("verified"), []byte("1"))
 		return nil
 	})
+}
+
+func CookieJar(db *DB) http.CookieJar { return &cookieJar{db} }
+
+type cookieJar struct {
+	DB *DB
+}
+
+func (cj *cookieJar) SetCookies(u *url.URL, cookies []*http.Cookie) {
+	err := cj.DB.Update(func(tx *Tx) error {
+		b, err := tx.AccountBucket().CreateBucketIfNotExists([]byte("cookies"))
+		if err != nil {
+			return err
+		}
+
+		for _, cookie := range cookies {
+			encoded, err := json.Marshal(cookie)
+			if err != nil {
+				return err
+			}
+			b.Put([]byte(cookie.Name), encoded)
+		}
+		return nil
+	})
+	if err != nil {
+		fmt.Printf("SetCookies error: %s", err)
+	}
+}
+
+func (cj *cookieJar) Cookies(u *url.URL) []*http.Cookie {
+	cookies := []*http.Cookie{}
+
+	err := cj.DB.View(func(tx *Tx) error {
+		b := tx.AccountBucket().Bucket([]byte("cookies"))
+		if b == nil {
+			return nil
+		}
+
+		err := b.ForEach(func(k, v []byte) error {
+			cookie := &http.Cookie{}
+			if err := json.Unmarshal(v, cookie); err != nil {
+				return err
+			}
+			cookies = append(cookies, cookie)
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
+	if err != nil {
+		fmt.Printf("Cookies error: %s", err)
+	}
+	return cookies
 }

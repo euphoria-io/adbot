@@ -43,6 +43,7 @@ func (b *Bot) Serve(ctx scope.Context) error {
 
 	b.ctrlRoom = &Room{
 		Config:        b.Config,
+		CookieJar:     sys.CookieJar(b.DB),
 		Name:          b.Config.ControlRoom,
 		SpeechHandler: BindCommands(&ControlRoomCommands{GeneralCommands{Bot: b}}),
 	}
@@ -52,8 +53,9 @@ func (b *Bot) Serve(ctx scope.Context) error {
 	b.rooms = map[string]*Room{}
 	for _, roomName := range rooms {
 		b.rooms[roomName] = &Room{
-			Config: b.Config,
-			Name:   roomName,
+			Config:    b.Config,
+			CookieJar: sys.CookieJar(b.DB),
+			Name:      roomName,
 		}
 		b.rooms[roomName].Dial(b.ctx.Fork())
 	}
