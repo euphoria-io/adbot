@@ -25,7 +25,7 @@ func Run() {
 
 	bot, err := New(cfg)
 	if err != nil {
-		fmt.Printf("error: %s", err)
+		fmt.Printf("error: %s\n", err)
 		os.Exit(2)
 	}
 

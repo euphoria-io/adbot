@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"euphoria.io/adbot/sys"
@@ -217,4 +218,34 @@ func (c *ControlRoomCommands) CmdAdminVerify(caller *Caller, cmd *Command, reply
 		return reply("error: %s", err)
 	}
 	return reply("verified!")
+}
+
+func (c *ControlRoomCommands) CmdAdminCredit(caller *Caller, cmd *Command, reply ReplyFunc) error {
+	if len(cmd.Args) != 2 {
+		return reply("usage: !credit USERID AMOUNT")
+	}
+
+	userID := proto.UserID(cmd.Args[0])
+
+	f, err := strconv.ParseFloat(cmd.Args[1], 64)
+	if err != nil {
+		return reply("error: %s", err)
+	}
+
+	credit := sys.Cents(f * 100)
+
+	balance, err := sys.Credit(c.Bot.DB, userID, credit)
+	if err != nil {
+		return reply("error: %s", err)
+	}
+
+	return reply("credited %s for %s, balance now %s", userID, credit, balance)
+}
+
+func (c *ControlRoomCommands) CmdGeneralBalance(caller *Caller, cmd *Command, reply ReplyFunc) error {
+	advertiser, err := sys.GetAdvertiser(c.Bot.DB, caller.UserID)
+	if err != nil {
+		return reply("error: %s", err)
+	}
+	return reply("your balance is %s", advertiser.Balance)
 }
