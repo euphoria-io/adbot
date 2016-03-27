@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 
+	"euphoria.io/adbot/sys"
 	"euphoria.io/heim/proto"
 )
 
@@ -194,4 +195,26 @@ func (c *ControlRoomCommands) CmdAdminShutdown(caller *Caller, cmd *Command, rep
 	}
 	c.Bot.ctx.Terminate(fmt.Errorf("shutdown requested by %s(%s)", caller.Nick, caller.UserID))
 	return nil
+}
+
+func (c *ControlRoomCommands) CmdAdminRegister(caller *Caller, cmd *Command, reply ReplyFunc) error {
+	if len(cmd.Args) != 1 {
+		return reply("usage: !register EMAIL")
+	}
+	email := cmd.Args[0]
+	if err := sys.Register(c.Bot.DB, c.Bot.ctrlRoom.c, email); err != nil {
+		return reply("error: %s", err)
+	}
+	return reply(`registered account under %s, please check email for verification URL and tell me "!verify URL"`, email)
+}
+
+func (c *ControlRoomCommands) CmdAdminVerify(caller *Caller, cmd *Command, reply ReplyFunc) error {
+	if len(cmd.Args) != 1 {
+		return reply("usage: !verify URL")
+	}
+	url := cmd.Args[0]
+	if err := sys.Verify(c.Bot.DB, c.Bot.ctrlRoom.c, url); err != nil {
+		return reply("error: %s", err)
+	}
+	return reply("verified!")
 }

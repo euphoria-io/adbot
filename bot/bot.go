@@ -5,24 +5,42 @@ import (
 	"sync"
 
 	"euphoria.io/scope"
+
+	"euphoria.io/adbot/sys"
 )
 
-func New(cfg *Config) *Bot {
-	return &Bot{
-		Config: cfg,
+func New(cfg *Config) (*Bot, error) {
+	db, err := sys.Open(cfg.DBPath)
+	if err != nil {
+		return nil, err
 	}
+
+	bot := &Bot{
+		Config: cfg,
+		DB:     db,
+	}
+	return bot, nil
 }
 
 type Bot struct {
 	sync.Mutex
 	Config *Config
+	DB     *sys.DB
 
 	ctx      scope.Context
 	ctrlRoom *Room
 	rooms    map[string]*Room
 }
 
-func (b *Bot) Serve(ctx scope.Context) {
+func (b *Bot) Serve(ctx scope.Context) error {
+	b.Lock()
+	defer b.Unlock()
+
+	rooms, err := sys.Rooms(b.DB)
+	if err != nil {
+		return err
+	}
+
 	b.ctrlRoom = &Room{
 		Config:        b.Config,
 		Name:          b.Config.ControlRoom,
@@ -31,7 +49,22 @@ func (b *Bot) Serve(ctx scope.Context) {
 	b.ctx = ctx
 	if err := b.ctrlRoom.Dial(b.ctx.Fork()); err != nil {
 		ctx.Terminate(err)
+		return err
 	}
+
+	b.rooms = map[string]*Room{}
+	for _, roomName := range rooms {
+		b.rooms[roomName] = &Room{
+			Config: b.Config,
+			Name:   roomName,
+		}
+		if err := b.rooms[roomName].Dial(b.ctx.Fork()); err != nil {
+			ctx.Terminate(err)
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (b *Bot) Join(roomName string) (bool, error) {
@@ -39,6 +72,11 @@ func (b *Bot) Join(roomName string) (bool, error) {
 	defer b.Unlock()
 
 	roomName = strings.ToLower(roomName)
+	ok, err := sys.Join(b.DB, roomName)
+	if !ok || err != nil {
+		return ok, err
+	}
+
 	if _, ok := b.rooms[roomName]; ok {
 		return false, nil
 	}
@@ -53,5 +91,6 @@ func (b *Bot) Join(roomName string) (bool, error) {
 	if err := b.rooms[roomName].Dial(b.ctx.Fork()); err != nil {
 		return false, err
 	}
+
 	return true, nil
 }

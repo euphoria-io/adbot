@@ -23,7 +23,12 @@ func Run() {
 	interrupt := make(chan os.Signal)
 	signal.Notify(interrupt, os.Interrupt, os.Kill)
 
-	bot := New(cfg)
+	bot, err := New(cfg)
+	if err != nil {
+		fmt.Printf("error: %s", err)
+		os.Exit(2)
+	}
+
 	bot.Serve(ctx)
 
 	exitCode := 0
