@@ -51,8 +51,8 @@ func Register(db *DB, conn *client.Client, email string) error {
 	var password string
 	err := db.Update(func(tx *Tx) error {
 		b := tx.AccountBucket()
-		if b.Get([]byte("email")) != nil {
-			return fmt.Errorf("already registered")
+		if emailBytes := b.Get([]byte("email")); emailBytes != nil {
+			return fmt.Errorf("already registered as %s", emailBytes)
 		}
 
 		b.Put([]byte("email"), []byte(email))
@@ -70,25 +70,29 @@ func Register(db *DB, conn *client.Client, email string) error {
 		return err
 	}
 
+	rollback := func(err error) error {
+		dberr := db.Update(func(tx *Tx) error {
+			return tx.AccountBucket().Delete([]byte("email"))
+		})
+		if dberr != nil {
+			return fmt.Errorf("%s (rolling back after error: %s)", dberr, err)
+		}
+		fmt.Printf("rolled back account email after error\n")
+		return err
+	}
+
 	resp, err := conn.Send(proto.RegisterAccountType, proto.RegisterAccountCommand{
 		Namespace: "email",
 		ID:        email,
 		Password:  password,
 	})
 	if err != nil {
-		dberr := db.Update(func(tx *Tx) error {
-			tx.AccountBucket().Delete([]byte("email"))
-			return nil
-		})
-		if dberr != nil {
-			return fmt.Errorf("%s (rolling back after error: %s)", dberr, err)
-		}
-		return err
+		return rollback(err)
 	}
 
 	reply, ok := resp.(proto.RegisterAccountReply)
 	if !ok || !reply.Success {
-		return fmt.Errorf("account registration failed: %s", reply.Reason)
+		return rollback(fmt.Errorf("account registration failed: %s", reply.Reason))
 	}
 
 	return nil

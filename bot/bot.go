@@ -32,6 +32,14 @@ type Bot struct {
 	rooms    map[string]*Room
 }
 
+func (b *Bot) NewRoom(roomName string) *Room {
+	return &Room{
+		Config:    b.Config,
+		CookieJar: sys.CookieJar(b.DB),
+		Name:      roomName,
+	}
+}
+
 func (b *Bot) Serve(ctx scope.Context) error {
 	b.Lock()
 	defer b.Unlock()
@@ -41,22 +49,14 @@ func (b *Bot) Serve(ctx scope.Context) error {
 		return err
 	}
 
-	b.ctrlRoom = &Room{
-		Config:        b.Config,
-		CookieJar:     sys.CookieJar(b.DB),
-		Name:          b.Config.ControlRoom,
-		SpeechHandler: BindCommands(&ControlRoomCommands{GeneralCommands{Bot: b}}),
-	}
 	b.ctx = ctx
+	b.ctrlRoom = b.NewRoom(b.Config.ControlRoom)
+	b.ctrlRoom.SpeechHandler = BindCommands(&ControlRoomCommands{GeneralCommands{Bot: b}})
 	b.ctrlRoom.Dial(b.ctx.Fork())
 
 	b.rooms = map[string]*Room{}
 	for _, roomName := range rooms {
-		b.rooms[roomName] = &Room{
-			Config:    b.Config,
-			CookieJar: sys.CookieJar(b.DB),
-			Name:      roomName,
-		}
+		b.rooms[roomName] = b.NewRoom(roomName)
 		b.rooms[roomName].Dial(b.ctx.Fork())
 	}
 
@@ -80,10 +80,7 @@ func (b *Bot) Join(roomName string) (bool, error) {
 	if b.rooms == nil {
 		b.rooms = map[string]*Room{}
 	}
-	b.rooms[roomName] = &Room{
-		Config: b.Config,
-		Name:   roomName,
-	}
+	b.rooms[roomName] = b.NewRoom(roomName)
 	b.rooms[roomName].Dial(b.ctx.Fork())
 	return true, nil
 }

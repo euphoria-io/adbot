@@ -205,7 +205,7 @@ func (c *ControlRoomCommands) CmdAdminRegister(caller *Caller, cmd *Command, rep
 	if err := sys.Register(c.Bot.DB, c.Bot.ctrlRoom.c, email); err != nil {
 		return reply("error: %s", err)
 	}
-	return reply(`registered account under %s, please check email for verification URL and tell me "!verify URL"`, email)
+	return nil
 }
 
 func (c *ControlRoomCommands) CmdAdminVerify(caller *Caller, cmd *Command, reply ReplyFunc) error {
