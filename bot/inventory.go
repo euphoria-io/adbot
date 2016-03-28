@@ -42,6 +42,10 @@ func (ish *InventorySpeechHandler) HandleSpeech(msg *proto.Message, reply ReplyF
 		}
 	}
 
+	_, err = ish.Bot.ctrlRoom.c.AsyncSend(proto.SendType, proto.Message{
+		Content: fmt.Sprintf("/me delivered creative %s to &%s at a price of %s", creative.Name, ish.Room.Name, cost),
+	})
+
 	atomic.StoreUint64(&ish.msgsSinceLastAd, 0)
 	return reply("sponsored message: %s", creative.Content)
 }
