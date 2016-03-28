@@ -91,6 +91,14 @@ func (r *Room) Redial() {
 	r.c.Add(r)
 }
 
+func (r *Room) UserCount() int {
+	n := 0
+	for _, ss := range r.sessionsByIdEra {
+		n += len(ss)
+	}
+	return n
+}
+
 func (r *Room) DisconnectEvent(event *proto.DisconnectEvent) error {
 	fmt.Printf("disconnected from %s due to '%s', reconnecting\n", r.Name, event.Reason)
 	go func() {

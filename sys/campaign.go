@@ -3,9 +3,16 @@ package sys
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
+	"strings"
 
 	"euphoria.io/heim/proto"
 )
+
+var MissingCreative = Creative{
+	UserID:  House,
+	Content: "404 ad not found",
+}
 
 type Creative struct {
 	UserID  proto.UserID
@@ -167,7 +174,7 @@ func Spends(db *DB, userID proto.UserID) ([]Spend, error) {
 	return spends, err
 }
 
-func MatchSpends(db *DB, content string) ([]Spend, error) {
+func MatchSpends(db *DB, content string, minBid Cents) ([]Spend, error) {
 	words := ParseWordList(content)
 	spends := []Spend{}
 	err := db.View(func(tx *Tx) error {
@@ -183,4 +190,104 @@ func MatchSpends(db *DB, content string) ([]Spend, error) {
 		})
 	})
 	return spends, err
+}
+
+type BidList []Spend
+
+func (bl BidList) Len() int           { return len(bl) }
+func (bl BidList) Swap(i, j int)      { bl[i], bl[j] = bl[j], bl[i] }
+func (bl BidList) Less(i, j int) bool { return bl[i].MaxBid < bl[j].MaxBid }
+
+func Select(db *DB, content string, minBid Cents) (*Creative, Cents, error) {
+	var (
+		creative *Creative
+		cost     Cents
+	)
+
+	words := ParseWordList(content)
+	wl := []string{}
+	for w, _ := range words {
+		wl = append(wl, w)
+	}
+	fmt.Printf("auctioning %s at min bid %s\n", strings.Join(wl, ", "), minBid)
+
+	err := db.View(func(tx *Tx) error {
+		balances := map[proto.UserID]Cents{}
+		spends := BidList{}
+		err := tx.SpendBucket().ForEach(func(k, v []byte) error {
+			spend := Spend{}
+			if err := json.Unmarshal(v, &spend); err != nil {
+				return err
+			}
+			if !words.Match(spend.Keywords) {
+				return nil
+			}
+			balance, ok := balances[spend.UserID]
+			if !ok {
+				b := tx.AdvertiserBucket().Bucket([]byte(spend.UserID))
+				if b != nil {
+					cents, err := getBalance(b)
+					if err != nil {
+						return err
+					}
+					fmt.Printf("user %s has budget %s\n", spend.UserID, cents)
+					balances[spend.UserID] = cents
+					balance = cents
+				}
+			}
+			if balance < spend.MaxBid {
+				spend.MaxBid = balance
+			}
+			if spend.MaxBid >= minBid {
+				spends = append(spends, spend)
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		sort.Sort(spends)
+
+		if len(spends) == 0 {
+			return nil
+		}
+
+		var winner Spend
+		if len(spends) == 1 {
+			winner = spends[0]
+			cost = minBid
+		} else {
+			winner = spends[len(spends)-1]
+			cost = spends[len(spends)-2].MaxBid + 1
+		}
+
+		b := tx.AdvertiserBucket().Bucket([]byte(winner.UserID))
+		if b == nil {
+			creative = &MissingCreative
+			return nil
+		}
+		b = b.Bucket([]byte("creatives"))
+		if b == nil {
+			creative = &MissingCreative
+			return nil
+		}
+		encoded := b.Get([]byte(winner.CreativeName))
+		if encoded == nil {
+			creative = &MissingCreative
+			return nil
+		}
+		creative = new(Creative)
+		if err := json.Unmarshal(encoded, creative); err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if creative != nil {
+		fmt.Printf("selecting %s at %s\n", creative.Name, cost)
+	}
+	return creative, cost, nil
 }

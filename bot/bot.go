@@ -58,6 +58,10 @@ func (b *Bot) Serve(ctx scope.Context) error {
 	for _, roomName := range rooms {
 		b.rooms[roomName] = b.NewRoom(roomName)
 		b.rooms[roomName].Dial(b.ctx.Fork())
+		b.rooms[roomName].SpeechHandler = &InventorySpeechHandler{
+			Bot:  b,
+			Room: b.rooms[roomName],
+		}
 	}
 
 	return nil
@@ -82,5 +86,9 @@ func (b *Bot) Join(roomName string) (bool, error) {
 	}
 	b.rooms[roomName] = b.NewRoom(roomName)
 	b.rooms[roomName].Dial(b.ctx.Fork())
+	b.rooms[roomName].SpeechHandler = &InventorySpeechHandler{
+		Bot:  b,
+		Room: b.rooms[roomName],
+	}
 	return true, nil
 }
