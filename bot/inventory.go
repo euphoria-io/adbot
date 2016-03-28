@@ -35,12 +35,7 @@ func (ish *InventorySpeechHandler) HandleSpeech(msg *proto.Message, reply ReplyF
 	}
 
 	if creative.UserID != sys.House {
-		noun := "consumers"
-		if impressions == 1 {
-			noun = "consumer"
-		}
-		cpi := cost / sys.Cents(impressions)
-		memo := fmt.Sprintf("displayed creative %s to %d %s (CPI = %s)", creative.Name, impressions, noun, cpi)
+		memo := fmt.Sprintf("display %s at CPI of %s", creative.Name, cost/sys.Cents(impressions))
 		_, _, err = sys.Transfer(ish.Bot.DB, cost, creative.UserID, sys.House, memo, true)
 		if err != nil {
 			return err

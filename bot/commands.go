@@ -276,7 +276,7 @@ func (c *ControlRoomCommands) CmdGeneralLedger(caller *Caller, cmd *Command, rep
 	}
 
 	buf := &bytes.Buffer{}
-	w := tabwriter.NewWriter(buf, 0, 1, 1, '_', tabwriter.AlignRight)
+	w := tabwriter.NewWriter(buf, 0, 1, 1, ' ', tabwriter.AlignRight)
 	fmt.Fprintln(w, "ID\tFrom\tTo\tMemo\tAmount\tBalance")
 	for _, entry := range ledger {
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", entry.TxID, entry.From, entry.To, entry.Memo, entry.Cents, entry.Balance)
