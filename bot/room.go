@@ -127,6 +127,9 @@ func (r *Room) SnapshotEvent(event *proto.SnapshotEvent) error {
 }
 
 func (r *Room) addSession(session proto.SessionView) {
+	if kind, _ := session.ID.Parse(); kind == "bot" {
+		return
+	}
 	key := fmt.Sprintf("%s:%s", session.ServerID, session.ServerEra)
 	sessions, ok := r.sessionsByIdEra[key]
 	if !ok {
