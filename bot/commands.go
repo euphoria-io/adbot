@@ -326,8 +326,8 @@ func (c *ControlRoomCommands) CmdDelete(caller *Caller, cmd *Command, reply Repl
 }
 
 func (c *ControlRoomCommands) CmdSpend(caller *Caller, cmd *Command, reply ReplyFunc) error {
-	if len(cmd.Args) < 7 || cmd.Args[0] != "up" || cmd.Args[1] != "to" || cmd.Args[3] != "on" || cmd.Args[5] != "when" {
-		return reply("usage: !spend up to MAXBID on CREATIVE when KEYWORDS...")
+	if len(cmd.Args) < 6 || cmd.Args[0] != "up" || cmd.Args[1] != "to" || cmd.Args[3] != "on" {
+		return reply("usage: !spend up to MAXBID on CREATIVE KEYWORDS...")
 	}
 	maxBidStr := cmd.Args[2]
 	f, err := strconv.ParseFloat(maxBidStr, 64)
