@@ -294,7 +294,7 @@ func (c *ControlRoomCommands) CmdCreative(caller *Caller, cmd *Command, reply Re
 		userID = sys.House
 	}
 	name := cmd.Args[0]
-	_, replaced, err := sys.NewCreative(c.Bot.DB, userID, name, cmd.Rest(1))
+	_, replaced, err := sys.NewCreative(c.Bot.DB, userID, name, cmd.Rest(2))
 	if err != nil {
 		return reply("error: %s", err)
 	}
