@@ -1,17 +1,33 @@
 package sys
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 
 	"github.com/boltdb/bolt"
 
 	"euphoria.io/heim/proto"
+	"euphoria.io/heim/proto/snowflake"
 )
 
-const InitialBalance = 10000
+const (
+	InitialBalance = 10000
+	House          = "house"
+)
+
+var ErrInsufficientFunds = fmt.Errorf("insufficient funds")
 
 type Cents int64
+
+type LedgerEntry struct {
+	TxID    snowflake.Snowflake
+	Cents   Cents
+	Balance Cents
+	From    proto.UserID
+	To      proto.UserID
+	Memo    string
+}
 
 func (c Cents) String() string {
 	if c%100 == 0 {
@@ -66,26 +82,107 @@ func SetNick(db *DB, userID proto.UserID, nick string) error {
 	})
 }
 
-func Debit(db *DB, userID proto.UserID, cents Cents) (Cents, error) {
-	balance := -cents
-	err := db.Update(func(tx *Tx) error {
-		b, err := tx.AdvertiserBucket().CreateBucketIfNotExists([]byte(userID))
+func Transfer(db *DB, cents Cents, from, to proto.UserID, memo string, force ...bool) (fromBalance, toBalance Cents, err error) {
+	err = db.Update(func(tx *Tx) error {
+		fromBucket, err := tx.AdvertiserBucket().CreateBucketIfNotExists([]byte(from))
+		if err != nil {
+			return err
+		}
+		fromLedger, err := fromBucket.CreateBucketIfNotExists([]byte("ledger"))
+		if err != nil {
+			return err
+		}
+		fromBalance, err = getBalance(fromBucket)
 		if err != nil {
 			return err
 		}
 
-		cents, err := getBalance(b)
+		toBucket, err := tx.AdvertiserBucket().CreateBucketIfNotExists([]byte(to))
 		if err != nil {
 			return err
 		}
-		balance += cents
-		b.Put([]byte("balance"), []byte(fmt.Sprintf("%d", balance)))
+		toLedger, err := toBucket.CreateBucketIfNotExists([]byte("ledger"))
+		if err != nil {
+			return err
+		}
+		toBalance, err = getBalance(toBucket)
+		if err != nil {
+			return err
+		}
+
+		fromBalance -= cents
+		toBalance += cents
+		if fromBalance < 0 && (len(force) == 0 || !force[0]) && from != House {
+			return ErrInsufficientFunds
+		}
+
+		txID, err := snowflake.New()
+		if err != nil {
+			return err
+		}
+		fromEntry := LedgerEntry{
+			TxID:    txID,
+			Cents:   cents,
+			From:    from,
+			To:      to,
+			Memo:    memo,
+			Balance: fromBalance,
+		}
+		fromEntryBytes, err := json.Marshal(fromEntry)
+		if err != nil {
+			return err
+		}
+		toEntry := LedgerEntry{
+			TxID:    txID,
+			Cents:   cents,
+			From:    from,
+			To:      to,
+			Memo:    memo,
+			Balance: toBalance,
+		}
+		toEntryBytes, err := json.Marshal(toEntry)
+		if err != nil {
+			return err
+		}
+
+		fromBucket.Put([]byte("balance"), []byte(fmt.Sprintf("%d", fromBalance)))
+		fromLedger.Put([]byte(txID.String()), fromEntryBytes)
+		toBucket.Put([]byte("balance"), []byte(fmt.Sprintf("%d", toBalance)))
+		toLedger.Put([]byte(txID.String()), toEntryBytes)
+		return nil
+	})
+	return
+}
+
+func Ledger(db *DB, userID proto.UserID, maxEntries int) ([]LedgerEntry, error) {
+	entries := []LedgerEntry{}
+	err := db.View(func(tx *Tx) error {
+		b := tx.AdvertiserBucket().Bucket([]byte(userID))
+		if b != nil {
+			fmt.Printf("looking up ledger\n")
+			b = b.Bucket([]byte("ledger"))
+		}
+		if b == nil {
+			fmt.Printf("no ledger\n")
+			return nil
+		}
+		fmt.Printf("trying cursor\n")
+		c := b.Cursor()
+		for k, v := c.Last(); k != nil && len(entries) < maxEntries; k, v = c.Prev() {
+			entry := LedgerEntry{}
+			if err := json.Unmarshal(v, &entry); err != nil {
+				return err
+			}
+			entries = append(entries, entry)
+		}
 		return nil
 	})
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return balance, nil
-}
 
-func Credit(db *DB, userID proto.UserID, cents Cents) (Cents, error) { return Debit(db, userID, -cents) }
+	for i := 0; i < len(entries)/2; i++ {
+		entries[i], entries[len(entries)-i-1] = entries[len(entries)-i-1], entries[i]
+	}
+	return entries, nil
+}

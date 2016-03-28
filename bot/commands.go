@@ -1,11 +1,13 @@
 package bot
 
 import (
+	"bytes"
 	"fmt"
 	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
+	"text/tabwriter"
 
 	"euphoria.io/adbot/sys"
 	"euphoria.io/heim/proto"
@@ -221,8 +223,8 @@ func (c *ControlRoomCommands) CmdAdminVerify(caller *Caller, cmd *Command, reply
 }
 
 func (c *ControlRoomCommands) CmdAdminCredit(caller *Caller, cmd *Command, reply ReplyFunc) error {
-	if len(cmd.Args) != 2 {
-		return reply("usage: !credit USERID AMOUNT")
+	if len(cmd.Args) < 2 {
+		return reply("usage: !credit USERID AMOUNT [MEMO]")
 	}
 
 	userID := proto.UserID(cmd.Args[0])
@@ -234,18 +236,51 @@ func (c *ControlRoomCommands) CmdAdminCredit(caller *Caller, cmd *Command, reply
 
 	credit := sys.Cents(f * 100)
 
-	balance, err := sys.Credit(c.Bot.DB, userID, credit)
+	_, toBalance, err := sys.Transfer(c.Bot.DB, credit, sys.House, userID, cmd.Rest(3), true)
 	if err != nil {
 		return reply("error: %s", err)
 	}
 
-	return reply("credited %s for %s, balance now %s", userID, credit, balance)
+	return reply("credited %s for %s, balance now %s", userID, credit, toBalance)
 }
 
 func (c *ControlRoomCommands) CmdGeneralBalance(caller *Caller, cmd *Command, reply ReplyFunc) error {
-	advertiser, err := sys.GetAdvertiser(c.Bot.DB, caller.UserID)
+	userID := caller.UserID
+	if caller.Host {
+		userID = sys.House
+	}
+	advertiser, err := sys.GetAdvertiser(c.Bot.DB, userID)
 	if err != nil {
 		return reply("error: %s", err)
 	}
 	return reply("your balance is %s", advertiser.Balance)
+}
+
+func (c *ControlRoomCommands) CmdGeneralLedger(caller *Caller, cmd *Command, reply ReplyFunc) error {
+	userID := caller.UserID
+	if caller.Host {
+		if len(cmd.Args) > 0 {
+			userID = proto.UserID(cmd.Args[0])
+		} else {
+			userID = sys.House
+		}
+	}
+
+	ledger, err := sys.Ledger(c.Bot.DB, userID, 25)
+	if err != nil {
+		return reply("error: %s", err)
+	}
+
+	if len(ledger) == 0 {
+		return reply("no transactions")
+	}
+
+	buf := &bytes.Buffer{}
+	w := tabwriter.NewWriter(buf, 0, 1, 1, '_', tabwriter.AlignRight)
+	fmt.Fprintln(w, "ID\tFrom\tTo\tMemo\tAmount\tBalance")
+	for _, entry := range ledger {
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", entry.TxID, entry.From, entry.To, entry.Memo, entry.Cents, entry.Balance)
+	}
+	w.Flush()
+	return reply(buf.String())
 }
