@@ -284,3 +284,89 @@ func (c *ControlRoomCommands) CmdGeneralLedger(caller *Caller, cmd *Command, rep
 	w.Flush()
 	return reply(buf.String())
 }
+
+func (c *ControlRoomCommands) CmdCreative(caller *Caller, cmd *Command, reply ReplyFunc) error {
+	if len(cmd.Args) < 2 {
+		return reply("usage: !creative NAME COPY...")
+	}
+	userID := caller.UserID
+	if caller.Host {
+		userID = sys.House
+	}
+	name := cmd.Args[0]
+	_, replaced, err := sys.NewCreative(c.Bot.DB, userID, name, cmd.Rest(1))
+	if err != nil {
+		return reply("error: %s", err)
+	}
+	verb := "added"
+	if replaced {
+		verb = "replaced"
+	}
+	return reply("%s creative %s, remove with !delete %s", verb, name, name)
+}
+
+func (c *ControlRoomCommands) CmdDelete(caller *Caller, cmd *Command, reply ReplyFunc) error {
+	if len(cmd.Args) < 1 {
+		return reply("usage: !delete CREATIVE")
+	}
+	userID := caller.UserID
+	if caller.Host {
+		userID = sys.House
+	}
+	name := cmd.Args[0]
+	deleted, err := sys.DeleteCreative(c.Bot.DB, userID, name)
+	if err != nil {
+		return reply("error: %s")
+	}
+	if deleted {
+		return reply("deleted creative %s", name)
+	} else {
+		return reply("creative %s does not exist", name)
+	}
+}
+
+func (c *ControlRoomCommands) CmdSpend(caller *Caller, cmd *Command, reply ReplyFunc) error {
+	if len(cmd.Args) < 7 || cmd.Args[0] != "up" || cmd.Args[1] != "to" || cmd.Args[3] != "on" || cmd.Args[5] != "when" {
+		return reply("usage: !spend up to MAXBID on CREATIVE when KEYWORDS...")
+	}
+	maxBidStr := cmd.Args[2]
+	f, err := strconv.ParseFloat(maxBidStr, 64)
+	if err != nil {
+		return reply("invalid max bid: %s", maxBidStr)
+	}
+	maxBid := sys.Cents(f * 100)
+	creativeName := cmd.Args[4]
+	userID := caller.UserID
+	if caller.Host {
+		userID = sys.House
+	}
+	_, replaced, err := sys.NewSpend(c.Bot.DB, userID, creativeName, cmd.Rest(6), maxBid)
+	if err != nil {
+		return reply("error: %s", err)
+	}
+	verb := "added"
+	if replaced {
+		verb = "replaced"
+	}
+	return reply("%s spend on creative %s, remove with !cancel %s", verb, creativeName, creativeName)
+}
+
+func (c *ControlRoomCommands) CmdCancel(caller *Caller, cmd *Command, reply ReplyFunc) error {
+	if len(cmd.Args) < 1 {
+		return reply("usage: !cancel CREATIVE")
+	}
+	userID := caller.UserID
+	if caller.Host {
+		userID = sys.House
+	}
+	name := cmd.Args[0]
+	deleted, err := sys.DeleteSpend(c.Bot.DB, userID, name)
+	if err != nil {
+		return reply("error: %s")
+	}
+	if deleted {
+		return reply("cancelled spend %s", name)
+	} else {
+		return reply("spend on %s does not exist", name)
+	}
+}
