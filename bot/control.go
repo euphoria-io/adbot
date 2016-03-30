@@ -179,6 +179,34 @@ func (c *ControlRoomCommands) CmdAdminRegister(caller *Caller, cmd *Command, rep
 	return nil
 }
 
+func (c *ControlRoomCommands) CmdAdminReset(caller *Caller, cmd *Command, reply ReplyFunc) error {
+	resetBalances := func() error {
+		if err := sys.ResetBalances(c.Bot.DB); err != nil {
+			return reply("error: %s", err)
+		}
+		return reply("reset all balances")
+	}
+
+	resetCampaigns := func() error {
+		if err := sys.ResetCampaigns(c.Bot.DB); err != nil {
+			return reply("error: %s", err)
+		}
+		return reply("reset all campaigns")
+	}
+
+	if len(cmd.Args) != 1 {
+		return reply("usage: !reset balances|campaigns")
+	}
+	switch cmd.Args[0] {
+	case "balances":
+		return resetBalances()
+	case "campaigns":
+		return resetCampaigns()
+	default:
+		return reply("usage: !reset balances|campaigns")
+	}
+}
+
 func (c *ControlRoomCommands) CmdAdminRooms(caller *Caller, cmd *Command, reply ReplyFunc) error {
 	rooms, err := sys.Rooms(c.Bot.DB)
 	if err != nil {

@@ -186,3 +186,23 @@ func Ledger(db *DB, userID proto.UserID, maxEntries int) ([]LedgerEntry, error) 
 	}
 	return entries, nil
 }
+
+func ResetBalances(db *DB) error {
+	return db.Update(func(tx *Tx) error {
+		userBuckets := tx.AdvertiserBucket()
+		return userBuckets.ForEach(func(k, v []byte) error {
+			if v == nil {
+				b := userBuckets.Bucket(k)
+				b.Delete([]byte("balance"))
+				lb := b.Bucket([]byte("ledger"))
+				if lb != nil {
+					if err := b.DeleteBucket([]byte("ledger")); err != nil {
+						return err
+					}
+				}
+			}
+			return nil
+		})
+		return nil
+	})
+}

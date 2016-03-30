@@ -313,3 +313,28 @@ func Select(db *DB, content string, minBid Cents) (*Creative, Cents, error) {
 	}
 	return creative, cost, nil
 }
+
+func ResetCampaigns(db *DB) error {
+	return db.Update(func(tx *Tx) error {
+		ab := tx.AdvertiserBucket()
+		b := ab.Bucket([]byte("creatives"))
+		if b != nil {
+			if err := ab.DeleteBucket([]byte("creatives")); err != nil {
+				return err
+			}
+		}
+		b = ab.Bucket([]byte("spends"))
+		if b != nil {
+			if err := ab.DeleteBucket([]byte("spends")); err != nil {
+				return err
+			}
+		}
+		if err := tx.DeleteBucket([]byte("spend")); err != nil {
+			return err
+		}
+		if _, err := tx.CreateBucket([]byte("spend")); err != nil {
+			return err
+		}
+		return nil
+	})
+}
