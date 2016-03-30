@@ -154,13 +154,13 @@ func DeleteSpend(db *DB, userID proto.UserID, creativeName string) (deleted bool
 func Spends(db *DB, userID proto.UserID) ([]Spend, error) {
 	spends := []Spend{}
 	err := db.View(func(tx *Tx) error {
-		b, err := tx.AdvertiserBucket().CreateBucketIfNotExists([]byte(userID))
-		if err != nil {
-			return err
+		b := tx.AdvertiserBucket().Bucket([]byte(userID))
+		if b == nil {
+			return nil
 		}
-		ss, err := b.CreateBucketIfNotExists([]byte("spends"))
-		if err != nil {
-			return err
+		ss := b.Bucket([]byte("spends"))
+		if ss == nil {
+			return nil
 		}
 		return ss.ForEach(func(k, v []byte) error {
 			spend := Spend{}
@@ -177,19 +177,25 @@ func Spends(db *DB, userID proto.UserID) ([]Spend, error) {
 func MatchSpends(db *DB, content string, minBid Cents) ([]Spend, error) {
 	words := ParseWordList(content)
 	spends := []Spend{}
-	err := db.View(func(tx *Tx) error {
+	err := MapSpends(db, func(spend Spend) error {
+		if words.Match(spend.Keywords) {
+			spends = append(spends, spend)
+		}
+		return nil
+	})
+	return spends, err
+}
+
+func MapSpends(db *DB, mapper func(Spend) error) error {
+	return db.View(func(tx *Tx) error {
 		return tx.SpendBucket().ForEach(func(k, v []byte) error {
 			spend := Spend{}
 			if err := json.Unmarshal(v, &spend); err != nil {
 				return err
 			}
-			if words.Match(spend.Keywords) {
-				spends = append(spends, spend)
-			}
-			return nil
+			return mapper(spend)
 		})
 	})
-	return spends, err
 }
 
 type BidList []Spend

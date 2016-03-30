@@ -14,6 +14,64 @@ type ControlRoomCommands struct {
 	GeneralCommands
 }
 
+func (c *ControlRoomCommands) CmdAdminCampaign(caller *Caller, cmd *Command, reply ReplyFunc) error {
+	fmtKeywords := func(keywords sys.WordList) string {
+		buf := &bytes.Buffer{}
+		for k, _ := range keywords {
+			if buf.Len() > 0 {
+				buf.WriteRune(',')
+			}
+			buf.WriteString(k)
+		}
+		keywordString := buf.String()
+		if len(keywordString) > 50 {
+			keywordString = keywordString[:50] + "..."
+		}
+		return keywordString
+	}
+
+	allCampaigns := func() error {
+		buf := &bytes.Buffer{}
+		w := tabwriter.NewWriter(buf, 5, 0, 2, ' ', 0)
+		fmt.Fprintln(w, "Account\tCreative\tMax Bid\tKeywords")
+		err := sys.MapSpends(c.Bot.DB, func(spend sys.Spend) error {
+			_, id := spend.UserID.Parse()
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", id, spend.CreativeName, spend.MaxBid, fmtKeywords(spend.Keywords))
+			return nil
+		})
+		if err != nil {
+			return reply("error: %s", err)
+		}
+		w.Flush()
+		return reply(buf.String())
+	}
+
+	userCampaigns := func() error {
+		userID := proto.UserID(cmd.Args[0])
+		spends, err := sys.Spends(c.Bot.DB, userID)
+		if err != nil {
+			return reply("error: %s", err)
+		}
+		buf := &bytes.Buffer{}
+		w := tabwriter.NewWriter(buf, 5, 0, 2, ' ', 0)
+		fmt.Fprintln(w, "Creative\tMax Bid\tKeywords")
+		for _, spend := range spends {
+			fmt.Fprintf(w, "%s\t%s\t%s\n", spend.CreativeName, spend.MaxBid, fmtKeywords(spend.Keywords))
+		}
+		w.Flush()
+		return reply(buf.String())
+	}
+
+	switch len(cmd.Args) {
+	case 0:
+		return allCampaigns()
+	case 1:
+		return userCampaigns()
+	default:
+		return reply("usage: !campaign [USERID]")
+	}
+}
+
 func (c *ControlRoomCommands) CmdAdminCredit(caller *Caller, cmd *Command, reply ReplyFunc) error {
 	if len(cmd.Args) < 2 {
 		return reply("usage: !credit USERID AMOUNT [MEMO]")
