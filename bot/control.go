@@ -14,61 +14,6 @@ type ControlRoomCommands struct {
 	GeneralCommands
 }
 
-func (c *ControlRoomCommands) CmdAdminJoin(caller *Caller, cmd *Command, reply ReplyFunc) error {
-	if len(cmd.Args) != 1 {
-		return reply("usage: !join ROOM")
-	}
-
-	roomName := cmd.Args[0]
-	joined, err := c.Bot.Join(roomName)
-	if err != nil {
-		return reply("error joining %s: %s", roomName, err)
-	}
-
-	if joined {
-		return reply("now tracking &%s", roomName)
-	} else {
-		return reply("already tracking &%s", roomName)
-	}
-}
-
-func (c *ControlRoomCommands) CmdAdminShutdown(caller *Caller, cmd *Command, reply ReplyFunc) error {
-	if err := reply("bye!"); err != nil {
-		c.Bot.ctx.Terminate(fmt.Errorf("error during shutdown requested by %s(%s): %s", caller.Nick, caller.UserID, err))
-		return err
-	}
-	c.Bot.ctx.Terminate(fmt.Errorf("shutdown requested by %s(%s)", caller.Nick, caller.UserID))
-	return nil
-}
-
-func (c *ControlRoomCommands) CmdAdminRegister(caller *Caller, cmd *Command, reply ReplyFunc) error {
-	if len(cmd.Args) != 1 {
-		return reply("usage: !register EMAIL")
-	}
-	email := cmd.Args[0]
-	for _, room := range c.Bot.ctrlRooms {
-		if err := sys.Register(c.Bot.DB, room.c, email); err != nil {
-			return reply("error: %s", err)
-		}
-		break
-	}
-	return nil
-}
-
-func (c *ControlRoomCommands) CmdAdminVerify(caller *Caller, cmd *Command, reply ReplyFunc) error {
-	if len(cmd.Args) != 1 {
-		return reply("usage: !verify URL")
-	}
-	url := cmd.Args[0]
-	for _, room := range c.Bot.ctrlRooms {
-		if err := sys.Verify(c.Bot.DB, room.c, url); err != nil {
-			return reply("error: %s", err)
-		}
-		break
-	}
-	return reply("verified!")
-}
-
 func (c *ControlRoomCommands) CmdAdminCredit(caller *Caller, cmd *Command, reply ReplyFunc) error {
 	if len(cmd.Args) < 2 {
 		return reply("usage: !credit USERID AMOUNT [MEMO]")
@@ -89,6 +34,61 @@ func (c *ControlRoomCommands) CmdAdminCredit(caller *Caller, cmd *Command, reply
 	}
 
 	return reply("credited %s for %s, balance now %s", userID, credit, toBalance)
+}
+
+func (c *ControlRoomCommands) CmdAdminJoin(caller *Caller, cmd *Command, reply ReplyFunc) error {
+	if len(cmd.Args) != 1 {
+		return reply("usage: !join ROOM")
+	}
+
+	roomName := cmd.Args[0]
+	joined, err := c.Bot.Join(roomName)
+	if err != nil {
+		return reply("error joining %s: %s", roomName, err)
+	}
+
+	if joined {
+		return reply("now tracking &%s", roomName)
+	} else {
+		return reply("already tracking &%s", roomName)
+	}
+}
+
+func (c *ControlRoomCommands) CmdAdminRegister(caller *Caller, cmd *Command, reply ReplyFunc) error {
+	if len(cmd.Args) != 1 {
+		return reply("usage: !register EMAIL")
+	}
+	email := cmd.Args[0]
+	for _, room := range c.Bot.ctrlRooms {
+		if err := sys.Register(c.Bot.DB, room.c, email); err != nil {
+			return reply("error: %s", err)
+		}
+		break
+	}
+	return nil
+}
+
+func (c *ControlRoomCommands) CmdAdminShutdown(caller *Caller, cmd *Command, reply ReplyFunc) error {
+	if err := reply("bye!"); err != nil {
+		c.Bot.ctx.Terminate(fmt.Errorf("error during shutdown requested by %s(%s): %s", caller.Nick, caller.UserID, err))
+		return err
+	}
+	c.Bot.ctx.Terminate(fmt.Errorf("shutdown requested by %s(%s)", caller.Nick, caller.UserID))
+	return nil
+}
+
+func (c *ControlRoomCommands) CmdAdminVerify(caller *Caller, cmd *Command, reply ReplyFunc) error {
+	if len(cmd.Args) != 1 {
+		return reply("usage: !verify URL")
+	}
+	url := cmd.Args[0]
+	for _, room := range c.Bot.ctrlRooms {
+		if err := sys.Verify(c.Bot.DB, room.c, url); err != nil {
+			return reply("error: %s", err)
+		}
+		break
+	}
+	return reply("verified!")
 }
 
 func (c *ControlRoomCommands) CmdGeneralBalance(caller *Caller, cmd *Command, reply ReplyFunc) error {
@@ -130,6 +130,26 @@ func (c *ControlRoomCommands) CmdGeneralLedger(caller *Caller, cmd *Command, rep
 	}
 	w.Flush()
 	return reply(buf.String())
+}
+
+func (c *ControlRoomCommands) CmdCancel(caller *Caller, cmd *Command, reply ReplyFunc) error {
+	if len(cmd.Args) < 1 {
+		return reply("usage: !cancel CREATIVE")
+	}
+	userID := caller.UserID
+	if caller.Host {
+		userID = sys.House
+	}
+	name := cmd.Args[0]
+	deleted, err := sys.DeleteSpend(c.Bot.DB, userID, name)
+	if err != nil {
+		return reply("error: %s")
+	}
+	if deleted {
+		return reply("cancelled spend %s", name)
+	} else {
+		return reply("spend on %s does not exist", name)
+	}
 }
 
 func (c *ControlRoomCommands) CmdCreative(caller *Caller, cmd *Command, reply ReplyFunc) error {
@@ -196,24 +216,4 @@ func (c *ControlRoomCommands) CmdSpend(caller *Caller, cmd *Command, reply Reply
 		verb = "replaced"
 	}
 	return reply("%s spend on creative %s, remove with !cancel %s", verb, creativeName, creativeName)
-}
-
-func (c *ControlRoomCommands) CmdCancel(caller *Caller, cmd *Command, reply ReplyFunc) error {
-	if len(cmd.Args) < 1 {
-		return reply("usage: !cancel CREATIVE")
-	}
-	userID := caller.UserID
-	if caller.Host {
-		userID = sys.House
-	}
-	name := cmd.Args[0]
-	deleted, err := sys.DeleteSpend(c.Bot.DB, userID, name)
-	if err != nil {
-		return reply("error: %s")
-	}
-	if deleted {
-		return reply("cancelled spend %s", name)
-	} else {
-		return reply("spend on %s does not exist", name)
-	}
 }
