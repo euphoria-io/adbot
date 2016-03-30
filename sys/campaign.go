@@ -217,13 +217,29 @@ func Select(db *DB, content string, minBid Cents) (*Creative, Cents, error) {
 	}
 	fmt.Printf("auctioning %s at min bid %s\n", strings.Join(wl, ", "), minBid)
 
-	err := db.View(func(tx *Tx) error {
+	userOverrides, err := UserOverrides(db)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	spendOverrides, err := SpendOverrides(db)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	err = db.View(func(tx *Tx) error {
 		balances := map[proto.UserID]Cents{}
 		spends := BidList{}
 		err := tx.SpendBucket().ForEach(func(k, v []byte) error {
 			spend := Spend{}
 			if err := json.Unmarshal(v, &spend); err != nil {
 				return err
+			}
+			if enabled, ok := spendOverrides[spend.UserID][spend.CreativeName]; ok && !enabled {
+				return nil
+			}
+			if enabled, ok := userOverrides[spend.UserID]; ok && !enabled {
+				return nil
 			}
 			if !words.Match(spend.Keywords) {
 				return nil

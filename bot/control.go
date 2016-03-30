@@ -95,6 +95,42 @@ func (c *ControlRoomCommands) CmdAdminCredit(caller *Caller, cmd *Command, reply
 	return reply("credited %s for %s, balance now %s", userID, credit, toBalance)
 }
 
+func (c *ControlRoomCommands) CmdAdminDisable(caller *Caller, cmd *Command, reply ReplyFunc) error {
+	return c.setEnabled(caller, cmd, reply)
+}
+
+func (c *ControlRoomCommands) CmdAdminEnable(caller *Caller, cmd *Command, reply ReplyFunc) error {
+	return c.setEnabled(caller, cmd, reply)
+}
+
+func (c *ControlRoomCommands) setEnabled(caller *Caller, cmd *Command, reply ReplyFunc) error {
+	setUserSpend := func() error {
+		userID := proto.UserID(cmd.Args[0])
+		if err := sys.SetUserEnabled(c.Bot.DB, userID, cmd.Name == "enable"); err != nil {
+			return reply("error: %s", err)
+		}
+		return reply("%sd all spends by %s", cmd.Name, userID)
+	}
+
+	setSpend := func() error {
+		userID := proto.UserID(cmd.Args[0])
+		creative := cmd.Args[1]
+		if err := sys.SetSpendEnabled(c.Bot.DB, userID, creative, cmd.Name == "enable"); err != nil {
+			return reply("error: %s", err)
+		}
+		return reply("%sd spend %s by %s", cmd.Name, creative, userID)
+	}
+
+	switch len(cmd.Args) {
+	case 1:
+		return setUserSpend()
+	case 2:
+		return setSpend()
+	default:
+		return reply("usage: !%s USERID [CREATIVE]", cmd.Name)
+	}
+}
+
 func (c *ControlRoomCommands) CmdAdminJoin(caller *Caller, cmd *Command, reply ReplyFunc) error {
 	if len(cmd.Args) != 1 {
 		return reply("usage: !join ROOM")
