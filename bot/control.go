@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
+	"strings"
 	"text/tabwriter"
 
 	"euphoria.io/adbot/sys"
@@ -124,6 +125,17 @@ func (c *ControlRoomCommands) CmdAdminRegister(caller *Caller, cmd *Command, rep
 		break
 	}
 	return nil
+}
+
+func (c *ControlRoomCommands) CmdAdminRooms(caller *Caller, cmd *Command, reply ReplyFunc) error {
+	rooms, err := sys.Rooms(c.Bot.DB)
+	if err != nil {
+		return reply("error: %s", err)
+	}
+	if len(rooms) == 0 {
+		return reply("no rooms configured")
+	}
+	return reply("&" + strings.Join(rooms, ", &"))
 }
 
 func (c *ControlRoomCommands) CmdAdminShutdown(caller *Caller, cmd *Command, reply ReplyFunc) error {
