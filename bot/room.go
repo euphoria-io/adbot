@@ -3,6 +3,7 @@ package bot
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -46,7 +47,14 @@ type Room struct {
 	sessionsByIdEra map[string]SessionSet
 }
 
-func (r *Room) IsControlRoom() bool { return r.Name == r.Config.ControlRoom }
+func (r *Room) IsControlRoom() bool {
+	for _, roomName := range strings.Split(r.Config.ControlRooms, ",") {
+		if roomName == r.Name {
+			return true
+		}
+	}
+	return false
+}
 
 func (r *Room) Dial(ctx scope.Context) {
 	r.ctx = ctx

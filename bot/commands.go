@@ -205,8 +205,11 @@ func (c *ControlRoomCommands) CmdAdminRegister(caller *Caller, cmd *Command, rep
 		return reply("usage: !register EMAIL")
 	}
 	email := cmd.Args[0]
-	if err := sys.Register(c.Bot.DB, c.Bot.ctrlRoom.c, email); err != nil {
-		return reply("error: %s", err)
+	for _, room := range c.Bot.ctrlRooms {
+		if err := sys.Register(c.Bot.DB, room.c, email); err != nil {
+			return reply("error: %s", err)
+		}
+		break
 	}
 	return nil
 }
@@ -216,8 +219,11 @@ func (c *ControlRoomCommands) CmdAdminVerify(caller *Caller, cmd *Command, reply
 		return reply("usage: !verify URL")
 	}
 	url := cmd.Args[0]
-	if err := sys.Verify(c.Bot.DB, c.Bot.ctrlRoom.c, url); err != nil {
-		return reply("error: %s", err)
+	for _, room := range c.Bot.ctrlRooms {
+		if err := sys.Verify(c.Bot.DB, room.c, url); err != nil {
+			return reply("error: %s", err)
+		}
+		break
 	}
 	return reply("verified!")
 }

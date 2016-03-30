@@ -27,9 +27,9 @@ type Bot struct {
 	Config *Config
 	DB     *sys.DB
 
-	ctx      scope.Context
-	ctrlRoom *Room
-	rooms    map[string]*Room
+	ctx       scope.Context
+	ctrlRooms map[string]*Room
+	rooms     map[string]*Room
 }
 
 func (b *Bot) NewRoom(roomName string) *Room {
@@ -50,9 +50,14 @@ func (b *Bot) Serve(ctx scope.Context) error {
 	}
 
 	b.ctx = ctx
-	b.ctrlRoom = b.NewRoom(b.Config.ControlRoom)
-	b.ctrlRoom.SpeechHandler = BindCommands(&ControlRoomCommands{GeneralCommands{Bot: b}})
-	b.ctrlRoom.Dial(b.ctx.Fork())
+
+	ctrlRoomHandler := &ControlRoomCommands{GeneralCommands{Bot: b}}
+	b.ctrlRooms = map[string]*Room{}
+	for _, roomName := range strings.Split(b.Config.ControlRooms, ",") {
+		b.ctrlRooms[roomName] = b.NewRoom(roomName)
+		b.ctrlRooms[roomName].SpeechHandler = BindCommands(ctrlRoomHandler)
+		b.ctrlRooms[roomName].Dial(b.ctx.Fork())
+	}
 
 	b.rooms = map[string]*Room{}
 	for _, roomName := range rooms {
