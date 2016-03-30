@@ -97,3 +97,17 @@ func (b *Bot) Join(roomName string) (bool, error) {
 	}
 	return true, nil
 }
+
+func (b *Bot) Part(roomName string) (bool, error) {
+	b.Lock()
+	defer b.Unlock()
+
+	roomName = strings.ToLower(roomName)
+
+	if room, ok := b.rooms[roomName]; ok {
+		room.Close()
+		delete(b.rooms, roomName)
+	}
+
+	return sys.Part(b.DB, roomName)
+}

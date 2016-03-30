@@ -113,6 +113,22 @@ func (c *ControlRoomCommands) CmdAdminJoin(caller *Caller, cmd *Command, reply R
 	}
 }
 
+func (c *ControlRoomCommands) CmdAdminPart(caller *Caller, cmd *Command, reply ReplyFunc) error {
+	if len(cmd.Args) != 1 {
+		return reply("usage: !part ROOM")
+	}
+
+	roomName := cmd.Args[0]
+	removed, err := c.Bot.Part(roomName)
+	if err != nil {
+		return reply("error: %s", err)
+	}
+	if !removed {
+		return reply("not tracking &%s", roomName)
+	}
+	return reply("no longer tracking &%s", roomName)
+}
+
 func (c *ControlRoomCommands) CmdAdminRegister(caller *Caller, cmd *Command, reply ReplyFunc) error {
 	if len(cmd.Args) != 1 {
 		return reply("usage: !register EMAIL")

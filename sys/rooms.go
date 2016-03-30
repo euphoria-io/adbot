@@ -21,3 +21,14 @@ func Join(db *DB, roomName string) (bool, error) {
 	})
 	return ok, err
 }
+
+func Part(db *DB, roomName string) (bool, error) {
+	var ok bool
+	err := db.Update(func(tx *Tx) error {
+		b := tx.RoomBucket()
+		ok = b.Get([]byte(roomName)) != nil
+		b.Delete([]byte(roomName))
+		return nil
+	})
+	return ok, err
+}

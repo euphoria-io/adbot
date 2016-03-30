@@ -56,6 +56,11 @@ func (r *Room) IsControlRoom() bool {
 	return false
 }
 
+func (r *Room) Close() error {
+	r.ctx.Terminate(fmt.Errorf("parting"))
+	return nil
+}
+
 func (r *Room) Dial(ctx scope.Context) {
 	r.ctx = ctx
 	r.Redial()
