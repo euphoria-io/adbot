@@ -367,3 +367,32 @@ func (c *ControlRoomCommands) CmdSpend(caller *Caller, cmd *Command, reply Reply
 	}
 	return reply("%s spend on creative %s, remove with !cancel %s", verb, creativeName, creativeName)
 }
+
+func (c *ControlRoomCommands) CmdStats(caller *Caller, cmd *Command, reply ReplyFunc) error {
+	userID := caller.UserID
+	if caller.Host {
+		userID = sys.House
+	}
+	if len(cmd.Args) > 0 {
+		userID = proto.UserID(cmd.Args[0])
+	}
+	m, err := sys.LoadMetrics(c.Bot.DB, userID)
+	if err != nil {
+		return reply("error: %s", err)
+	}
+
+	buf := &bytes.Buffer{}
+	w := tabwriter.NewWriter(buf, 5, 0, 2, ' ', tabwriter.AlignRight)
+	fmt.Fprintf(w, "Ads displayed:\t%d\n", m.AdsDisplayed)
+	fmt.Fprintf(w, "Impressions:\t%d\n", m.Impressions)
+	if userID == sys.System {
+		fmt.Fprintf(w, "Total revenue:\t%s\n", sys.Cents(m.AmountSpent-m.AmountSpentByHouse))
+	} else {
+		fmt.Fprintf(w, "Total spent:\t%s\n", sys.Cents(m.AmountSpent))
+	}
+	if m.Impressions > 0 {
+		fmt.Fprintf(w, "CPI:\t%s\n", sys.Cents(m.AmountSpent/m.Impressions))
+	}
+	w.Flush()
+	return reply(buf.String())
+}

@@ -314,6 +314,18 @@ func Select(db *DB, content string, minBid Cents) (*Creative, Cents, error) {
 	return creative, cost, nil
 }
 
+func Bill(db *DB, userID proto.UserID, cost Cents, creativeName string, impressions int) error {
+	memo := fmt.Sprintf("display %s at CPI of %s", creativeName, cost/Cents(impressions))
+	if _, _, err := Transfer(db, cost, userID, System, memo, true); err != nil {
+		return err
+	}
+	return SaveMetrics(db, userID, Metrics{
+		AdsDisplayed: 1,
+		Impressions:  uint64(impressions),
+		AmountSpent:  uint64(cost),
+	})
+}
+
 func ResetCampaigns(db *DB) error {
 	return db.Update(func(tx *Tx) error {
 		ab := tx.AdvertiserBucket()

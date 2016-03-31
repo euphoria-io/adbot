@@ -66,6 +66,7 @@ type Tx struct {
 
 func (tx *Tx) AccountBucket() *bolt.Bucket    { return tx.Bucket([]byte("account")) }
 func (tx *Tx) AdvertiserBucket() *bolt.Bucket { return tx.Bucket([]byte("advertiser")) }
+func (tx *Tx) MetricsBucket() *bolt.Bucket    { return tx.Bucket([]byte("metrics")) }
 func (tx *Tx) OverrideBucket() *bolt.Bucket   { return tx.Bucket([]byte("override")) }
 func (tx *Tx) RoomBucket() *bolt.Bucket       { return tx.Bucket([]byte("room")) }
 func (tx *Tx) SpendBucket() *bolt.Bucket      { return tx.Bucket([]byte("spend")) }

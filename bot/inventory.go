@@ -34,9 +34,7 @@ func (ish *InventorySpeechHandler) HandleSpeech(msg *proto.Message, reply ReplyF
 		return nil
 	}
 
-	memo := fmt.Sprintf("display %s at CPI of %s", creative.Name, cost/sys.Cents(impressions))
-	_, _, err = sys.Transfer(ish.Bot.DB, cost, creative.UserID, sys.System, memo, true)
-	if err != nil {
+	if err := sys.Bill(ish.Bot.DB, creative.UserID, cost, creative.Name, impressions); err != nil {
 		return err
 	}
 
