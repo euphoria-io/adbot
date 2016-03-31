@@ -81,8 +81,7 @@ func SetNick(db *DB, userID proto.UserID, nick string) error {
 		if err != nil {
 			return err
 		}
-		b.Put([]byte("nick"), []byte(nick))
-		return nil
+		return b.Put([]byte("nick"), []byte(nick))
 	})
 }
 

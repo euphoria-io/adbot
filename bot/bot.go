@@ -34,6 +34,7 @@ type Bot struct {
 
 func (b *Bot) NewRoom(roomName string) *Room {
 	return &Room{
+		Bot:       b,
 		Config:    b.Config,
 		CookieJar: sys.CookieJar(b.DB),
 		Name:      roomName,

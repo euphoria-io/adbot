@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"euphoria.io/adbot/sys"
 	"euphoria.io/heim-client/client"
 	"euphoria.io/heim/proto"
 	"euphoria.io/scope"
@@ -34,6 +35,7 @@ func (ss SessionSet) Contains(sessionID string) bool {
 
 type Room struct {
 	sync.Mutex
+	Bot           *Bot
 	Config        *Config
 	CookieJar     http.CookieJar
 	Name          string
@@ -132,16 +134,18 @@ func (r *Room) SnapshotEvent(event *proto.SnapshotEvent) error {
 	r.joined = true
 
 	for _, session := range event.Listing {
-		r.addSession(session)
+		if err := r.addSession(session); err != nil {
+			return err
+		}
 	}
 
 	_, err := r.c.Send(proto.NickType, proto.NickCommand{Name: r.Config.DefaultNick})
 	return err
 }
 
-func (r *Room) addSession(session proto.SessionView) {
+func (r *Room) addSession(session proto.SessionView) error {
 	if kind, _ := session.ID.Parse(); kind == "bot" {
-		return
+		return nil
 	}
 	key := fmt.Sprintf("%s:%s", session.ServerID, session.ServerEra)
 	sessions, ok := r.sessionsByIdEra[key]
@@ -154,10 +158,23 @@ func (r *Room) addSession(session proto.SessionView) {
 	if session.IsManager {
 		r.hosts.Add(session.SessionID)
 	}
+
+	kind, _ := session.ID.Parse()
+	if kind == "account" && r.IsControlRoom() {
+		return sys.SetNick(r.Bot.DB, session.ID, session.Name)
+	}
+	return nil
 }
 
 func (r *Room) JoinEvent(event *proto.PresenceEvent) error {
-	r.addSession(proto.SessionView(*event))
+	return r.addSession(proto.SessionView(*event))
+}
+
+func (r *Room) NickEvent(event *proto.NickEvent) error {
+	kind, _ := event.ID.Parse()
+	if kind == "account" && r.IsControlRoom() {
+		return sys.SetNick(r.Bot.DB, event.ID, event.To)
+	}
 	return nil
 }
 

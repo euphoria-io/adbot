@@ -3,6 +3,7 @@ package bot
 import (
 	"bytes"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"text/tabwriter"
@@ -340,6 +341,31 @@ func (c *ControlRoomCommands) CmdDelete(caller *Caller, cmd *Command, reply Repl
 	} else {
 		return reply("creative %s does not exist", name)
 	}
+}
+
+func (c *ControlRoomCommands) CmdScoreboard(caller *Caller, cmd *Command, reply ReplyFunc) error {
+	sb := Scoreboard{}
+	if err := sb.Load(c.Bot.DB); err != nil {
+		return reply("error: %s", err)
+	}
+	sort.Reverse(sb)
+
+	if len(sb) > 10 {
+		sb = sb[:10]
+	}
+	for i, entry := range sb {
+		user, err := sys.GetAdvertiser(c.Bot.DB, entry.UserID)
+		if err != nil {
+			return reply("error: %s", err)
+		}
+		sb[i].Name = user.Nick
+	}
+
+	buf := &bytes.Buffer{}
+	if err := sb.WriteTo(buf); err != nil {
+		return reply("error: %s", err)
+	}
+	return reply(buf.String())
 }
 
 func (c *ControlRoomCommands) CmdSpend(caller *Caller, cmd *Command, reply ReplyFunc) error {
