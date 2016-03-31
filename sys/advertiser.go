@@ -12,9 +12,8 @@ import (
 )
 
 const (
-	InitialBalance = 10000
-	House          = "house"
-	System         = "system"
+	House  = "house"
+	System = "system"
 )
 
 var ErrInsufficientFunds = fmt.Errorf("insufficient funds")
@@ -42,13 +41,40 @@ type Advertiser struct {
 	Balance Cents
 }
 
-func getBalance(userID proto.UserID, b *bolt.Bucket) (Cents, error) {
-	bs := b.Get([]byte("balance"))
+func getBalance(tx *Tx, userID proto.UserID) (Cents, error) {
+	var b *bolt.Bucket
+	if tx.Writable() {
+		var err error
+		b, err = tx.AdvertiserBucket().CreateBucketIfNotExists([]byte(userID))
+		if err != nil {
+			return 0, err
+		}
+	} else {
+		b = tx.AdvertiserBucket().Bucket([]byte(userID))
+	}
+	var bs []byte
+	if b != nil {
+		bs = b.Get([]byte("balance"))
+	}
 	if bs == nil {
 		if userID == House || userID == System {
 			return 0, nil
 		}
-		return InitialBalance, nil
+		sb := tx.StimulusBucket()
+		bs := sb.Get([]byte("stimulus"))
+		if bs != nil {
+			c, err := strconv.ParseInt(string(bs), 10, 64)
+			if err != nil {
+				return 0, err
+			}
+			stimulus := Cents(c)
+			if tx.Writable() {
+				_, balance, err := transfer(tx, stimulus, House, userID, "euphoria commercial speech stimulus", true)
+				return balance, err
+			}
+			return stimulus, nil
+		}
+		return 0, nil
 	}
 	c, err := strconv.ParseInt(string(bs), 10, 64)
 	if err != nil {
@@ -58,13 +84,13 @@ func getBalance(userID proto.UserID, b *bolt.Bucket) (Cents, error) {
 }
 
 func GetAdvertiser(db *DB, userID proto.UserID) (*Advertiser, error) {
-	advertiser := &Advertiser{Balance: InitialBalance}
+	advertiser := &Advertiser{}
 	err := db.View(func(tx *Tx) error {
 		b := tx.AdvertiserBucket().Bucket([]byte(userID))
 		if b == nil {
 			return nil
 		}
-		cents, err := getBalance(userID, b)
+		cents, err := getBalance(tx, userID)
 		if err != nil {
 			return err
 		}
@@ -85,74 +111,87 @@ func SetNick(db *DB, userID proto.UserID, nick string) error {
 	})
 }
 
+func transfer(tx *Tx, cents Cents, from, to proto.UserID, memo string, force bool) (fromBalance, toBalance Cents, err error) {
+	fromBucket, err := tx.AdvertiserBucket().CreateBucketIfNotExists([]byte(from))
+	if err != nil {
+		return
+	}
+	fromLedger, err := fromBucket.CreateBucketIfNotExists([]byte("ledger"))
+	if err != nil {
+		return
+	}
+	fromBalance, err = getBalance(tx, from)
+	if err != nil {
+		return
+	}
+
+	toBucket, err := tx.AdvertiserBucket().CreateBucketIfNotExists([]byte(to))
+	if err != nil {
+		return
+	}
+	toLedger, err := toBucket.CreateBucketIfNotExists([]byte("ledger"))
+	if err != nil {
+		return
+	}
+
+	bs := toBucket.Get([]byte("balance"))
+	if bs != nil {
+		var c int64
+		c, err = strconv.ParseInt(string(bs), 10, 64)
+		if err != nil {
+			return
+		}
+		toBalance = Cents(c)
+	}
+
+	fromBalance -= cents
+	toBalance += cents
+	if fromBalance < 0 && !force && from != House && from != System {
+		err = ErrInsufficientFunds
+		return
+	}
+
+	txID, err := snowflake.New()
+	if err != nil {
+		return
+	}
+	fromEntry := LedgerEntry{
+		TxID:    txID,
+		Cents:   cents,
+		From:    from,
+		To:      to,
+		Memo:    memo,
+		Balance: fromBalance,
+	}
+	fromEntryBytes, err := json.Marshal(fromEntry)
+	if err != nil {
+		return
+	}
+	toEntry := LedgerEntry{
+		TxID:    txID,
+		Cents:   cents,
+		From:    from,
+		To:      to,
+		Memo:    memo,
+		Balance: toBalance,
+	}
+	toEntryBytes, err := json.Marshal(toEntry)
+	if err != nil {
+		return
+	}
+
+	fromBucket.Put([]byte("balance"), []byte(fmt.Sprintf("%d", fromBalance)))
+	fromLedger.Put([]byte(txID.String()), fromEntryBytes)
+	toBucket.Put([]byte("balance"), []byte(fmt.Sprintf("%d", toBalance)))
+	toLedger.Put([]byte(txID.String()), toEntryBytes)
+	return
+}
+
 func Transfer(db *DB, cents Cents, from, to proto.UserID, memo string, force ...bool) (fromBalance, toBalance Cents, err error) {
 	err = db.Update(func(tx *Tx) error {
-		fromBucket, err := tx.AdvertiserBucket().CreateBucketIfNotExists([]byte(from))
-		if err != nil {
-			return err
-		}
-		fromLedger, err := fromBucket.CreateBucketIfNotExists([]byte("ledger"))
-		if err != nil {
-			return err
-		}
-		fromBalance, err = getBalance(from, fromBucket)
-		if err != nil {
-			return err
-		}
-
-		toBucket, err := tx.AdvertiserBucket().CreateBucketIfNotExists([]byte(to))
-		if err != nil {
-			return err
-		}
-		toLedger, err := toBucket.CreateBucketIfNotExists([]byte("ledger"))
-		if err != nil {
-			return err
-		}
-		toBalance, err = getBalance(to, toBucket)
-		if err != nil {
-			return err
-		}
-
-		fromBalance -= cents
-		toBalance += cents
-		if fromBalance < 0 && (len(force) == 0 || !force[0]) && from != House && from != System {
-			return ErrInsufficientFunds
-		}
-
-		txID, err := snowflake.New()
-		if err != nil {
-			return err
-		}
-		fromEntry := LedgerEntry{
-			TxID:    txID,
-			Cents:   cents,
-			From:    from,
-			To:      to,
-			Memo:    memo,
-			Balance: fromBalance,
-		}
-		fromEntryBytes, err := json.Marshal(fromEntry)
-		if err != nil {
-			return err
-		}
-		toEntry := LedgerEntry{
-			TxID:    txID,
-			Cents:   cents,
-			From:    from,
-			To:      to,
-			Memo:    memo,
-			Balance: toBalance,
-		}
-		toEntryBytes, err := json.Marshal(toEntry)
-		if err != nil {
-			return err
-		}
-
-		fromBucket.Put([]byte("balance"), []byte(fmt.Sprintf("%d", fromBalance)))
-		fromLedger.Put([]byte(txID.String()), fromEntryBytes)
-		toBucket.Put([]byte("balance"), []byte(fmt.Sprintf("%d", toBalance)))
-		toLedger.Put([]byte(txID.String()), toEntryBytes)
-		return nil
+		var err error
+		fromBalance, toBalance, err = transfer(tx, cents, from, to, memo, len(force) > 0 && force[0])
+		return err
 	})
 	return
 }
@@ -214,6 +253,35 @@ func ResetBalances(db *DB) error {
 		}
 		if _, err := tx.CreateBucket([]byte("metrics")); err != nil {
 			return err
+		}
+		return nil
+	})
+}
+
+func AddStimulus(db *DB, amount Cents) error {
+	return db.Update(func(tx *Tx) error {
+		b := tx.StimulusBucket()
+		former := Cents(0)
+		bs := b.Get([]byte("stimulus"))
+		if bs != nil {
+			c, err := strconv.ParseInt(string(bs), 10, 64)
+			if err != nil {
+				return err
+			}
+			former = Cents(c)
+		}
+		b.Put([]byte("stimulus"), []byte(fmt.Sprintf("%d", former+amount)))
+
+		memo := "euphoria commercial speech stimulus refresher"
+		c := tx.AdvertiserBucket().Cursor()
+		for k, _ := c.First(); k != nil; k, _ = c.Next() {
+			userID := proto.UserID(k)
+			if userID == House || userID == System {
+				continue
+			}
+			if _, _, err := transfer(tx, amount, House, userID, memo, true); err != nil {
+				return err
+			}
 		}
 		return nil
 	})

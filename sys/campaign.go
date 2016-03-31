@@ -246,16 +246,13 @@ func Select(db *DB, content string, minBid Cents) (*Creative, Cents, error) {
 			}
 			balance, ok := balances[spend.UserID]
 			if !ok {
-				b := tx.AdvertiserBucket().Bucket([]byte(spend.UserID))
-				if b != nil {
-					cents, err := getBalance(spend.UserID, b)
-					if err != nil {
-						return err
-					}
-					fmt.Printf("user %s has budget %s\n", spend.UserID, cents)
-					balances[spend.UserID] = cents
-					balance = cents
+				cents, err := getBalance(tx, spend.UserID)
+				if err != nil {
+					return err
 				}
+				fmt.Printf("user %s has budget %s\n", spend.UserID, cents)
+				balances[spend.UserID] = cents
+				balance = cents
 			}
 			if spend.UserID != House && balance < spend.MaxBid {
 				spend.MaxBid = balance

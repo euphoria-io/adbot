@@ -228,6 +228,25 @@ func (c *ControlRoomCommands) CmdAdminShutdown(caller *Caller, cmd *Command, rep
 	return nil
 }
 
+func (c *ControlRoomCommands) CmdAdminStimulate(caller *Caller, cmd *Command, reply ReplyFunc) error {
+	if len(cmd.Args) != 1 {
+		return reply("usage: !stimulate AMOUNT")
+	}
+
+	stimulusStr := cmd.Args[0]
+	f, err := strconv.ParseFloat(stimulusStr, 64)
+	if err != nil {
+		return reply("invalid stimulus: %s", stimulusStr)
+	}
+	stimulus := sys.Cents(f * 100)
+
+	if err := sys.AddStimulus(c.Bot.DB, stimulus); err != nil {
+		return reply("error: %s", err)
+	}
+
+	return reply("stimulus package rolled out")
+}
+
 func (c *ControlRoomCommands) CmdAdminVerify(caller *Caller, cmd *Command, reply ReplyFunc) error {
 	if len(cmd.Args) != 1 {
 		return reply("usage: !verify URL")

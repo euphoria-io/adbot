@@ -70,3 +70,4 @@ func (tx *Tx) MetricsBucket() *bolt.Bucket    { return tx.Bucket([]byte("metrics
 func (tx *Tx) OverrideBucket() *bolt.Bucket   { return tx.Bucket([]byte("override")) }
 func (tx *Tx) RoomBucket() *bolt.Bucket       { return tx.Bucket([]byte("room")) }
 func (tx *Tx) SpendBucket() *bolt.Bucket      { return tx.Bucket([]byte("spend")) }
+func (tx *Tx) StimulusBucket() *bolt.Bucket   { return tx.Bucket([]byte("stimulus")) }
