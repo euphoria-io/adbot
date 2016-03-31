@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 	"text/tabwriter"
 
@@ -80,13 +79,10 @@ func (c *ControlRoomCommands) CmdAdminCredit(caller *Caller, cmd *Command, reply
 	}
 
 	userID := proto.UserID(cmd.Args[0])
-
-	f, err := strconv.ParseFloat(cmd.Args[1], 64)
+	credit, err := ParseCents(cmd.Args[0])
 	if err != nil {
 		return reply("error: %s", err)
 	}
-
-	credit := sys.Cents(f * 100)
 
 	_, toBalance, err := sys.Transfer(c.Bot.DB, credit, sys.House, userID, cmd.Rest(3), true)
 	if err != nil {
@@ -234,11 +230,10 @@ func (c *ControlRoomCommands) CmdAdminStimulate(caller *Caller, cmd *Command, re
 	}
 
 	stimulusStr := cmd.Args[0]
-	f, err := strconv.ParseFloat(stimulusStr, 64)
+	stimulus, err := ParseCents(stimulusStr)
 	if err != nil {
 		return reply("invalid stimulus: %s", stimulusStr)
 	}
-	stimulus := sys.Cents(f * 100)
 
 	if err := sys.AddStimulus(c.Bot.DB, stimulus); err != nil {
 		return reply("error: %s", err)
@@ -392,11 +387,10 @@ func (c *ControlRoomCommands) CmdSpend(caller *Caller, cmd *Command, reply Reply
 		return reply("usage: !spend up to MAXBID on CREATIVE KEYWORDS...")
 	}
 	maxBidStr := cmd.Args[2]
-	f, err := strconv.ParseFloat(maxBidStr, 64)
+	maxBid, err := ParseCents(maxBidStr)
 	if err != nil {
 		return reply("invalid max bid: %s", maxBidStr)
 	}
-	maxBid := sys.Cents(f * 100)
 	creativeName := cmd.Args[4]
 	userID := caller.UserID
 	if caller.Host {

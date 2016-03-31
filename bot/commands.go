@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 
+	"euphoria.io/adbot/sys"
 	"euphoria.io/heim/proto"
 )
 
@@ -163,4 +165,12 @@ type GeneralCommands struct {
 
 func (c *GeneralCommands) CmdGeneralHelp(caller *Caller, cmd *Command, reply ReplyFunc) error {
 	return reply("no help available")
+}
+
+func ParseCents(str string) (sys.Cents, error) {
+	f, err := strconv.ParseFloat(strings.TrimPrefix(str, "$"), 64)
+	if err != nil {
+		return 0, err
+	}
+	return sys.Cents(f * 100), nil
 }
