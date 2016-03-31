@@ -18,8 +18,6 @@ const (
 
 var ErrInsufficientFunds = fmt.Errorf("insufficient funds")
 
-type Cents int64
-
 type LedgerEntry struct {
 	TxID    snowflake.Snowflake
 	Cents   Cents
@@ -27,13 +25,6 @@ type LedgerEntry struct {
 	From    proto.UserID
 	To      proto.UserID
 	Memo    string
-}
-
-func (c Cents) String() string {
-	if c%100 == 0 {
-		return fmt.Sprintf("$%d", c/100)
-	}
-	return fmt.Sprintf("$%d.%02d", c/100, c%100)
 }
 
 type Advertiser struct {
