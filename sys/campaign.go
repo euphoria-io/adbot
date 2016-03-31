@@ -248,7 +248,7 @@ func Select(db *DB, content string, minBid Cents) (*Creative, Cents, error) {
 			if !ok {
 				b := tx.AdvertiserBucket().Bucket([]byte(spend.UserID))
 				if b != nil {
-					cents, err := getBalance(b)
+					cents, err := getBalance(spend.UserID, b)
 					if err != nil {
 						return err
 					}
@@ -257,7 +257,7 @@ func Select(db *DB, content string, minBid Cents) (*Creative, Cents, error) {
 					balance = cents
 				}
 			}
-			if balance < spend.MaxBid {
+			if spend.UserID != House && balance < spend.MaxBid {
 				spend.MaxBid = balance
 			}
 			if spend.MaxBid >= minBid {

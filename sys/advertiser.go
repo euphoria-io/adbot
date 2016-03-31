@@ -41,9 +41,12 @@ type Advertiser struct {
 	Balance Cents
 }
 
-func getBalance(b *bolt.Bucket) (Cents, error) {
+func getBalance(userID proto.UserID, b *bolt.Bucket) (Cents, error) {
 	bs := b.Get([]byte("balance"))
 	if bs == nil {
+		if userID == House {
+			return 0, nil
+		}
 		return InitialBalance, nil
 	}
 	c, err := strconv.ParseInt(string(bs), 10, 64)
@@ -60,7 +63,7 @@ func GetAdvertiser(db *DB, userID proto.UserID) (*Advertiser, error) {
 		if b == nil {
 			return nil
 		}
-		cents, err := getBalance(b)
+		cents, err := getBalance(userID, b)
 		if err != nil {
 			return err
 		}
@@ -92,7 +95,7 @@ func Transfer(db *DB, cents Cents, from, to proto.UserID, memo string, force ...
 		if err != nil {
 			return err
 		}
-		fromBalance, err = getBalance(fromBucket)
+		fromBalance, err = getBalance(from, fromBucket)
 		if err != nil {
 			return err
 		}
@@ -105,7 +108,7 @@ func Transfer(db *DB, cents Cents, from, to proto.UserID, memo string, force ...
 		if err != nil {
 			return err
 		}
-		toBalance, err = getBalance(toBucket)
+		toBalance, err = getBalance(to, toBucket)
 		if err != nil {
 			return err
 		}
