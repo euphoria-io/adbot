@@ -14,6 +14,7 @@ import (
 const (
 	InitialBalance = 10000
 	House          = "house"
+	System         = "system"
 )
 
 var ErrInsufficientFunds = fmt.Errorf("insufficient funds")
@@ -44,7 +45,7 @@ type Advertiser struct {
 func getBalance(userID proto.UserID, b *bolt.Bucket) (Cents, error) {
 	bs := b.Get([]byte("balance"))
 	if bs == nil {
-		if userID == House {
+		if userID == House || userID == System {
 			return 0, nil
 		}
 		return InitialBalance, nil
@@ -115,7 +116,7 @@ func Transfer(db *DB, cents Cents, from, to proto.UserID, memo string, force ...
 
 		fromBalance -= cents
 		toBalance += cents
-		if fromBalance < 0 && (len(force) == 0 || !force[0]) && from != House {
+		if fromBalance < 0 && (len(force) == 0 || !force[0]) && from != House && from != System {
 			return ErrInsufficientFunds
 		}
 

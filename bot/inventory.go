@@ -34,12 +34,10 @@ func (ish *InventorySpeechHandler) HandleSpeech(msg *proto.Message, reply ReplyF
 		return nil
 	}
 
-	if creative.UserID != sys.House {
-		memo := fmt.Sprintf("display %s at CPI of %s", creative.Name, cost/sys.Cents(impressions))
-		_, _, err = sys.Transfer(ish.Bot.DB, cost, creative.UserID, sys.House, memo, true)
-		if err != nil {
-			return err
-		}
+	memo := fmt.Sprintf("display %s at CPI of %s", creative.Name, cost/sys.Cents(impressions))
+	_, _, err = sys.Transfer(ish.Bot.DB, cost, creative.UserID, sys.System, memo, true)
+	if err != nil {
+		return err
 	}
 
 	for _, room := range ish.Bot.ctrlRooms {
