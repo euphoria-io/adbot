@@ -362,7 +362,7 @@ func (c *ControlRoomCommands) CmdScoreboard(caller *Caller, cmd *Command, reply 
 	if err := sb.Load(c.Bot.DB); err != nil {
 		return reply("error: %s", err)
 	}
-	sort.Reverse(sb)
+	sort.Sort(sort.Reverse(sb))
 
 	if len(sb) > 10 {
 		sb = sb[:10]

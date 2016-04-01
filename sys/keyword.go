@@ -20,11 +20,12 @@ func ParseWordList(content string) WordList {
 	return words
 }
 
-func (a WordList) Match(b WordList) bool {
+func (a WordList) Match(b WordList) WordList {
+	m := WordList{}
 	for w, _ := range a {
 		if _, ok := b[w]; ok {
-			return true
+			m[w] = struct{}{}
 		}
 	}
-	return false
+	return m
 }

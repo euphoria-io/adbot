@@ -3,7 +3,6 @@ package sys
 import (
 	"encoding/json"
 	"fmt"
-	"sort"
 	"strings"
 
 	"euphoria.io/heim/proto"
@@ -174,18 +173,6 @@ func Spends(db *DB, userID proto.UserID) ([]Spend, error) {
 	return spends, err
 }
 
-func MatchSpends(db *DB, content string, minBid Cents) ([]Spend, error) {
-	words := ParseWordList(content)
-	spends := []Spend{}
-	err := MapSpends(db, func(spend Spend) error {
-		if words.Match(spend.Keywords) {
-			spends = append(spends, spend)
-		}
-		return nil
-	})
-	return spends, err
-}
-
 func MapSpends(db *DB, mapper func(Spend) error) error {
 	return db.View(func(tx *Tx) error {
 		return tx.SpendBucket().ForEach(func(k, v []byte) error {
@@ -197,12 +184,6 @@ func MapSpends(db *DB, mapper func(Spend) error) error {
 		})
 	})
 }
-
-type BidList []Spend
-
-func (bl BidList) Len() int           { return len(bl) }
-func (bl BidList) Swap(i, j int)      { bl[i], bl[j] = bl[j], bl[i] }
-func (bl BidList) Less(i, j int) bool { return bl[i].MaxBid < bl[j].MaxBid }
 
 func Select(db *DB, content string, minBid Cents) (*Creative, Cents, error) {
 	var (
@@ -217,68 +198,17 @@ func Select(db *DB, content string, minBid Cents) (*Creative, Cents, error) {
 	}
 	fmt.Printf("auctioning %s at min bid %s\n", strings.Join(wl, ", "), minBid)
 
-	userOverrides, err := UserOverrides(db)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	spendOverrides, err := SpendOverrides(db)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	err = db.View(func(tx *Tx) error {
-		balances := map[proto.UserID]Cents{}
-		spends := BidList{}
-		err := tx.SpendBucket().ForEach(func(k, v []byte) error {
-			spend := Spend{}
-			if err := json.Unmarshal(v, &spend); err != nil {
-				return err
-			}
-			if enabled, ok := spendOverrides[spend.UserID][spend.CreativeName]; ok && !enabled {
-				return nil
-			}
-			if enabled, ok := userOverrides[spend.UserID]; ok && !enabled {
-				return nil
-			}
-			if !words.Match(spend.Keywords) {
-				return nil
-			}
-			balance, ok := balances[spend.UserID]
-			if !ok {
-				cents, err := getBalance(tx, spend.UserID)
-				if err != nil {
-					return err
-				}
-				fmt.Printf("user %s has budget %s\n", spend.UserID, cents)
-				balances[spend.UserID] = cents
-				balance = cents
-			}
-			if spend.UserID != House && balance < spend.MaxBid {
-				spend.MaxBid = balance
-			}
-			if spend.MaxBid >= minBid {
-				spends = append(spends, spend)
-			}
-			return nil
-		})
+	err := db.View(func(tx *Tx) error {
+		bids, err := getBids(tx, words, minBid)
 		if err != nil {
 			return err
 		}
-		sort.Sort(spends)
 
-		if len(spends) == 0 {
+		winner, c, ok := bids.Auction()
+		if !ok {
 			return nil
 		}
-
-		var winner Spend
-		if len(spends) == 1 {
-			winner = spends[0]
-			cost = minBid
-		} else {
-			winner = spends[len(spends)-1]
-			cost = spends[len(spends)-2].MaxBid + 1
-		}
+		cost = c
 
 		b := tx.AdvertiserBucket().Bucket([]byte(winner.UserID))
 		if b == nil {
