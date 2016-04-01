@@ -11,7 +11,7 @@ import (
 func MinBid(userCount, msgsSinceLastAd int) sys.Cents {
 	cost := sys.Cents(5 * userCount)
 	if msgsSinceLastAd < 20 {
-		cost *= 5 * (10 - sys.Cents(msgsSinceLastAd))
+		cost *= 5 * (20 - sys.Cents(msgsSinceLastAd))
 	}
 	return cost
 }
@@ -38,7 +38,15 @@ func (ish *InventorySpeechHandler) HandleSpeech(msg *proto.Message, reply ReplyF
 		return err
 	}
 
-	content := fmt.Sprintf("/me delivered creative %s to &%s at a price of %s", creative.Name, ish.Room.Name, cost)
+	adv, err := sys.GetAdvertiser(ish.Bot.DB, creative.UserID)
+	if err != nil {
+		return err
+	}
+
+	content := fmt.Sprintf("/me delivered creative %s by %s to &%s at a price of %s", creative.Name, adv.Nick, ish.Room.Name, cost)
+	if creative.UserID == sys.House {
+		content = fmt.Sprintf("/me delivered house creative %s to &%s at a price of %s", creative.Name, ish.Room.Name, cost)
+	}
 	if ish.Bot.Config.Ghost {
 		content += " (simulated)"
 	}

@@ -49,9 +49,10 @@ func (sb *Scoreboard) Load(db *sys.DB) error {
 
 func (sb Scoreboard) WriteTo(w io.Writer) error {
 	tw := TabWriter(w)
-	fmt.Fprintln(tw, "Rank\tUser\tImpressions\tAmount Spent\t\n")
+	fmt.Fprintln(tw, "Rank\tUser\tImpressions\tSpent\tCPI\t")
 	for i, entry := range sb {
-		fmt.Fprintf(tw, "%d\t%s\t%d\t%s\t\n", i+1, entry.Name, entry.Metrics.Impressions, sys.Cents(entry.Metrics.AmountSpent))
+		cpi := sys.Cents(entry.Metrics.AmountSpent / entry.Metrics.Impressions)
+		fmt.Fprintf(tw, "%d\t%s\t%d\t%s\t%s\t\n", i+1, entry.Name, entry.Metrics.Impressions, sys.Cents(entry.Metrics.AmountSpent), cpi)
 	}
 	tw.Flush()
 	return nil

@@ -1,10 +1,14 @@
 package sys
 
+import "strings"
+
 func Rooms(db *DB) ([]string, error) {
 	var rooms []string
 	err := db.View(func(tx *Tx) error {
 		return tx.RoomBucket().ForEach(func(k, v []byte) error {
-			rooms = append(rooms, string(k))
+			if roomName := string(k); !strings.HasPrefix(string(roomName), "&") {
+				rooms = append(rooms, roomName)
+			}
 			return nil
 		})
 	})

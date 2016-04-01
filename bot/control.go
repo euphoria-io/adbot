@@ -81,7 +81,7 @@ func (c *ControlRoomCommands) CmdAdminCredit(caller *Caller, cmd *Command, reply
 	}
 
 	userID := proto.UserID(cmd.Args[0])
-	credit, err := ParseCents(cmd.Args[0])
+	credit, err := ParseCents(cmd.Args[1])
 	if err != nil {
 		return reply("error: %s", err)
 	}

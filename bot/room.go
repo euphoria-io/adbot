@@ -215,6 +215,10 @@ func (r *Room) SendEvent(event *proto.SendEvent) error {
 		return nil
 	}
 
+	if kind, _ := event.Sender.ID.Parse(); kind == "bot" {
+		return nil
+	}
+
 	reply := func(format string, args ...interface{}) error {
 		msg := proto.Message{
 			Parent: event.ID,

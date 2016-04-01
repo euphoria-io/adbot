@@ -64,6 +64,7 @@ func getBids(tx *Tx, target WordList, minBid Cents) (BidList, error) {
 		for w, _ := range bid.Matches {
 			scores[i] += 1 / float64(matchCounts[w])
 		}
+		scores[i] *= float64(len(bid.Matches)) / float64(len(bid.Keywords))
 		if minScore < 0 || scores[i] < minScore {
 			minScore = scores[i]
 		}
@@ -88,6 +89,9 @@ func getBids(tx *Tx, target WordList, minBid Cents) (BidList, error) {
 		}
 		if b < Cents(float64(minBid)*bid.Discount) && bid.UserID != House {
 			continue
+		}
+		if bid.MaxBid > b && bid.UserID != House {
+			bid.MaxBid = b
 		}
 		bid.Bid = Cents(float64(bid.MaxBid) / bid.Discount)
 		if bid.Bid < minBid {
