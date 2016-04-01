@@ -185,6 +185,37 @@ func MapSpends(db *DB, mapper func(Spend) error) error {
 	})
 }
 
+func ScaleSpends(db *DB, userID proto.UserID, factor float64) error {
+	return db.Update(func(tx *Tx) error {
+		b := tx.AdvertiserBucket().Bucket([]byte(userID))
+		if b == nil {
+			return nil
+		}
+		ss := b.Bucket([]byte("spends"))
+		if ss == nil {
+			return nil
+		}
+		c := ss.Cursor()
+		for k, v := c.First(); k != nil; k, v = c.Next() {
+			spend := Spend{}
+			if err := json.Unmarshal(v, &spend); err != nil {
+				return err
+			}
+			spend.MaxBid = Cents(float64(spend.MaxBid) * factor)
+			var err error
+			v, err = json.Marshal(spend)
+			if err != nil {
+				return err
+			}
+			ss.Put(k, v)
+
+			globalKey := fmt.Sprintf("%s:%s", userID, spend.CreativeName)
+			tx.SpendBucket().Put([]byte(globalKey), v)
+		}
+		return nil
+	})
+}
+
 func Select(db *DB, content string, minBid Cents) (*Creative, Cents, error) {
 	var (
 		creative *Creative

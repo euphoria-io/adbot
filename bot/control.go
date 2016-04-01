@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"euphoria.io/adbot/sys"
@@ -214,6 +215,23 @@ func (c *ControlRoomCommands) CmdAdminRooms(caller *Caller, cmd *Command, reply 
 		return reply("no rooms configured")
 	}
 	return reply("&" + strings.Join(rooms, ", &"))
+}
+
+func (c *ControlRoomCommands) CmdAdminScale(caller *Caller, cmd *Command, reply ReplyFunc) error {
+	if len(cmd.Args) != 1 {
+		return reply("usage: !scale FACTOR")
+	}
+
+	factor, err := strconv.ParseFloat(cmd.Args[0], 64)
+	if err != nil {
+		return reply("invalid scaling factor: %s", err)
+	}
+
+	if err := sys.ScaleSpends(c.Bot.DB, sys.House, factor); err != nil {
+		return reply("error: %s", err)
+	}
+
+	return reply("scaled house spends by a factor of %f", factor)
 }
 
 func (c *ControlRoomCommands) CmdAdminShutdown(caller *Caller, cmd *Command, reply ReplyFunc) error {
