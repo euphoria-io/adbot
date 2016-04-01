@@ -9,9 +9,9 @@ import (
 )
 
 func MinBid(userCount, msgsSinceLastAd int) sys.Cents {
-	cost := sys.Cents(10 * userCount)
+	cost := sys.Cents(5 * userCount)
 	if msgsSinceLastAd < 20 {
-		cost *= 10 * (20 - sys.Cents(msgsSinceLastAd))
+		cost *= 5 * (10 - sys.Cents(msgsSinceLastAd))
 	}
 	return cost
 }
