@@ -293,6 +293,10 @@ func (c *ControlRoomCommands) CmdGeneralBalance(caller *Caller, cmd *Command, re
 	return reply("%s balance is %s", adj, advertiser.Balance)
 }
 
+func (c *ControlRoomCommands) CmdGeneralHelp(caller *Caller, cmd *Command, reply ReplyFunc) error {
+	return reply("read my guide here: https://github.com/euphoria-io/adbot/wiki/Adbot-Guide")
+}
+
 func (c *ControlRoomCommands) CmdGeneralLedger(caller *Caller, cmd *Command, reply ReplyFunc) error {
 	userID := caller.UserID
 	if caller.Host {
