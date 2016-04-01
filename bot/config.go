@@ -12,6 +12,7 @@ type Config struct {
 	ControlRooms string
 	DBPath       string
 	DefaultNick  string
+	Ghost        bool
 }
 
 func (cfg *Config) FlagSet() *flag.FlagSet {
@@ -21,6 +22,7 @@ func (cfg *Config) FlagSet() *flag.FlagSet {
 	flags.StringVar(&cfg.ControlRooms, "controlRoom", "ads", "name of room where admin commands are given (or comma-separated list)")
 	flags.StringVar(&cfg.DBPath, "db", "adbot.db", "path to database file")
 	flags.StringVar(&cfg.DefaultNick, "defaultNick", "Adbot", "name to use in control room")
+	flags.BoolVar(&cfg.Ghost, "ghost", false, "connect to inventory rooms in ghost mode, where the bot and ads remain hidden")
 	flags.Usage = func() {
 		fmt.Printf("usage: %s OPTIONS\n\n", cmdName)
 		flags.PrintDefaults()

@@ -45,5 +45,9 @@ func (ish *InventorySpeechHandler) HandleSpeech(msg *proto.Message, reply ReplyF
 	}
 
 	atomic.StoreUint64(&ish.msgsSinceLastAd, 0)
+
+	if ish.Bot.Config.Ghost {
+		return nil
+	}
 	return reply("sponsored message: %s", creative.Content)
 }

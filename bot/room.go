@@ -139,6 +139,9 @@ func (r *Room) SnapshotEvent(event *proto.SnapshotEvent) error {
 		}
 	}
 
+	if r.Config.Ghost && !r.IsControlRoom() {
+		return nil
+	}
 	_, err := r.c.Send(proto.NickType, proto.NickCommand{Name: r.Config.DefaultNick})
 	return err
 }
