@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"text/tabwriter"
 
 	"euphoria.io/adbot/sys"
 	"euphoria.io/heim/proto"
@@ -49,10 +48,10 @@ func (sb *Scoreboard) Load(db *sys.DB) error {
 }
 
 func (sb Scoreboard) WriteTo(w io.Writer) error {
-	tw := tabwriter.NewWriter(w, 5, 0, 2, ' ', tabwriter.AlignRight)
-	fmt.Fprintln(tw, "Rank\tUser\tImpressions\tAmount Spent\n")
+	tw := TabWriter(w)
+	fmt.Fprintln(tw, "Rank\tUser\tImpressions\tAmount Spent\t\n")
 	for i, entry := range sb {
-		fmt.Fprintf(tw, "%d\t%s\t%d\t%s\n", i+1, entry.Name, entry.Metrics.Impressions, sys.Cents(entry.Metrics.AmountSpent))
+		fmt.Fprintf(tw, "%d\t%s\t%d\t%s\t\n", i+1, entry.Name, entry.Metrics.Impressions, sys.Cents(entry.Metrics.AmountSpent))
 	}
 	tw.Flush()
 	return nil

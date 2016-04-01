@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"bytes"
 	"fmt"
 	"net/http"
 	"strings"
@@ -223,6 +224,18 @@ func (r *Room) SendEvent(event *proto.SendEvent) error {
 		} else {
 			msg.Content = fmt.Sprintf(format, args...)
 		}
+		buf := &bytes.Buffer{}
+		for _, part := range strings.Split(msg.Content, "\t") {
+			tab := 8 - buf.Len()%8
+			if buf.Len() == 0 {
+				tab = 0
+			}
+			for i := 0; i < tab; i++ {
+				buf.WriteRune(' ')
+			}
+			buf.WriteString(part)
+		}
+		msg.Content = buf.String()
 		_, err := r.c.AsyncSend(proto.SendType, msg)
 		return err
 	}

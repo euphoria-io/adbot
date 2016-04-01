@@ -38,9 +38,13 @@ func (ish *InventorySpeechHandler) HandleSpeech(msg *proto.Message, reply ReplyF
 		return err
 	}
 
+	content := fmt.Sprintf("/me delivered creative %s to &%s at a price of %s", creative.Name, ish.Room.Name, cost)
+	if ish.Bot.Config.Ghost {
+		content += " (simulated)"
+	}
 	for _, room := range ish.Bot.ctrlRooms {
 		_, err = room.c.AsyncSend(proto.SendType, proto.Message{
-			Content: fmt.Sprintf("/me delivered creative %s to &%s at a price of %s", creative.Name, ish.Room.Name, cost),
+			Content: content,
 		})
 	}
 

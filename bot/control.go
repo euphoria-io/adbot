@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"text/tabwriter"
 
 	"euphoria.io/adbot/sys"
 	"euphoria.io/heim/proto"
@@ -33,11 +32,12 @@ func (c *ControlRoomCommands) CmdAdminCampaign(caller *Caller, cmd *Command, rep
 
 	allCampaigns := func() error {
 		buf := &bytes.Buffer{}
-		w := tabwriter.NewWriter(buf, 5, 0, 2, ' ', 0)
-		fmt.Fprintln(w, "Account\tCreative\tMax Bid\tKeywords")
+		fmt.Fprintln(buf, "all campaigns:")
+		w := TabWriter(buf)
+		fmt.Fprintln(w, "Account\tCreative\tMax Bid\tKeywords\t")
 		err := sys.MapSpends(c.Bot.DB, func(spend sys.Spend) error {
 			_, id := spend.UserID.Parse()
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", id, spend.CreativeName, spend.MaxBid, fmtKeywords(spend.Keywords))
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t\n", id, spend.CreativeName, spend.MaxBid, fmtKeywords(spend.Keywords))
 			return nil
 		})
 		if err != nil {
@@ -54,10 +54,11 @@ func (c *ControlRoomCommands) CmdAdminCampaign(caller *Caller, cmd *Command, rep
 			return reply("error: %s", err)
 		}
 		buf := &bytes.Buffer{}
-		w := tabwriter.NewWriter(buf, 5, 0, 2, ' ', 0)
-		fmt.Fprintln(w, "Creative\tMax Bid\tKeywords")
+		fmt.Fprintf(buf, "%s campaigns\n", userID)
+		w := TabWriter(buf)
+		fmt.Fprintln(w, "Creative\tMax Bid\tKeywords\t")
 		for _, spend := range spends {
-			fmt.Fprintf(w, "%s\t%s\t%s\n", spend.CreativeName, spend.MaxBid, fmtKeywords(spend.Keywords))
+			fmt.Fprintf(w, "%s\t%s\t%s\t\n", spend.CreativeName, spend.MaxBid, fmtKeywords(spend.Keywords))
 		}
 		w.Flush()
 		return reply(buf.String())
@@ -294,10 +295,11 @@ func (c *ControlRoomCommands) CmdGeneralLedger(caller *Caller, cmd *Command, rep
 	}
 
 	buf := &bytes.Buffer{}
-	w := tabwriter.NewWriter(buf, 5, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "ID\tFrom\tTo\tMemo\tAmount\tBalance")
+	fmt.Fprintf(buf, "ledger for %s:\n", userID)
+	w := TabWriter(buf)
+	fmt.Fprintln(w, "ID\tFrom\tTo\tMemo\tAmount\tBalance\t")
 	for _, entry := range ledger {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", entry.TxID, entry.From, entry.To, entry.Memo, entry.Cents, entry.Balance)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t\n", entry.TxID, entry.From, entry.To, entry.Memo, entry.Cents, entry.Balance)
 	}
 	w.Flush()
 	return reply(buf.String())
@@ -382,6 +384,7 @@ func (c *ControlRoomCommands) CmdScoreboard(caller *Caller, cmd *Command, reply 
 	}
 
 	buf := &bytes.Buffer{}
+	fmt.Fprintln(buf, "top scores:")
 	if err := sb.WriteTo(buf); err != nil {
 		return reply("error: %s", err)
 	}
@@ -427,16 +430,17 @@ func (c *ControlRoomCommands) CmdStats(caller *Caller, cmd *Command, reply Reply
 	}
 
 	buf := &bytes.Buffer{}
-	w := tabwriter.NewWriter(buf, 5, 0, 2, ' ', tabwriter.AlignRight)
-	fmt.Fprintf(w, "Ads displayed:\t%d\n", m.AdsDisplayed)
-	fmt.Fprintf(w, "Impressions:\t%d\n", m.Impressions)
+	fmt.Fprintln(buf, "stats:\n")
+	w := TabWriter(buf)
+	fmt.Fprintf(w, "Ads displayed:\t%d\t\n", m.AdsDisplayed)
+	fmt.Fprintf(w, "Impressions:\t%d\t\n", m.Impressions)
 	if userID == sys.System {
-		fmt.Fprintf(w, "Total revenue:\t%s\n", sys.Cents(m.AmountSpent-m.AmountSpentByHouse))
+		fmt.Fprintf(w, "Total revenue:\t%s\t\n", sys.Cents(m.AmountSpent-m.AmountSpentByHouse))
 	} else {
-		fmt.Fprintf(w, "Total spent:\t%s\n", sys.Cents(m.AmountSpent))
+		fmt.Fprintf(w, "Total spent:\t%s\t\n", sys.Cents(m.AmountSpent))
 	}
 	if m.Impressions > 0 {
-		fmt.Fprintf(w, "CPI:\t%s\n", sys.Cents(m.AmountSpent/m.Impressions))
+		fmt.Fprintf(w, "CPI:\t%s\t\n", sys.Cents(m.AmountSpent/m.Impressions))
 	}
 	w.Flush()
 	return reply(buf.String())
