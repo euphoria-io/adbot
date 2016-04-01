@@ -257,15 +257,21 @@ func (c *ControlRoomCommands) CmdAdminVerify(caller *Caller, cmd *Command, reply
 }
 
 func (c *ControlRoomCommands) CmdGeneralBalance(caller *Caller, cmd *Command, reply ReplyFunc) error {
+	adj := "your"
 	userID := caller.UserID
 	if caller.Host {
-		userID = sys.House
+		if len(cmd.Args) > 0 {
+			adj = cmd.Args[0]
+			userID = proto.UserID(adj)
+		} else {
+			userID = sys.House
+		}
 	}
 	advertiser, err := sys.GetAdvertiser(c.Bot.DB, userID)
 	if err != nil {
 		return reply("error: %s", err)
 	}
-	return reply("your balance is %s", advertiser.Balance)
+	return reply("%s balance is %s", adj, advertiser.Balance)
 }
 
 func (c *ControlRoomCommands) CmdGeneralLedger(caller *Caller, cmd *Command, reply ReplyFunc) error {
