@@ -241,8 +241,8 @@ func Select(db *DB, content string, minBid Cents) (*Creative, Cents, error) {
 	return creative, cost, nil
 }
 
-func Bill(db *DB, userID proto.UserID, cost Cents, creativeName string, impressions int) error {
-	memo := fmt.Sprintf("display %s at CPI of %s", creativeName, cost/Cents(impressions))
+func Bill(db *DB, roomName string, userID proto.UserID, cost Cents, creativeName string, impressions int) error {
+	memo := fmt.Sprintf("display %s in &%s at CPI of %s", creativeName, roomName, cost/Cents(impressions))
 	if _, _, err := Transfer(db, cost, userID, System, memo, true); err != nil {
 		return err
 	}

@@ -34,7 +34,7 @@ func (ish *InventorySpeechHandler) HandleSpeech(msg *proto.Message, reply ReplyF
 		return nil
 	}
 
-	if err := sys.Bill(ish.Bot.DB, creative.UserID, cost, creative.Name, impressions); err != nil {
+	if err := sys.Bill(ish.Bot.DB, ish.Room.Name, creative.UserID, cost, creative.Name, impressions); err != nil {
 		return err
 	}
 
