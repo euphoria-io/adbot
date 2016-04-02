@@ -93,10 +93,10 @@ func getBids(tx *Tx, target WordList, minBid Cents) (BidList, error) {
 		if bid.MaxBid > b && bid.UserID != House {
 			bid.MaxBid = b
 		}
-		bid.Bid = Cents(float64(bid.MaxBid) / bid.Discount)
-		if bid.Bid < minBid {
+		if bid.MaxBid < minBid {
 			continue
 		}
+		bid.Bid = Cents(float64(bid.MaxBid) / bid.Discount)
 		bids = append(bids, bid)
 	}
 
